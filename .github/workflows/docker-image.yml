@@ -1,57 +1,95 @@
-name: Docker Image CI
+name: Build and Push Docker Image
 
+# 触发条件：手动触发 + main分支推送
 on:
-  push:
-    branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
   workflow_dispatch:
     inputs:
-      platforms:
-        description: 'Comma-separated target platforms for buildx (eg. linux/amd64,linux/arm64)'
-        required: false
-        default: 'linux/amd64,linux/arm64'
-      push:
-        description: 'Whether to push the built image to registry (requires DOCKER_USERNAME/DOCKER_PASSWORD)'
-        required: false
-        default: 'false'
-      tag:
-        description: 'Image tag to use when pushing (defaults to commit SHA)'
+      # 手动触发时可指定镜像标签（默认用commit SHA）
+      image_tag:
+        description: 'Tag for the Docker image (default: commit SHA)'
         required: false
         default: ''
+      # 手动选择构建的平台
+      platforms:
+        description: 'Target platforms (comma-separated, e.g. linux/amd64,linux/arm64)'
+        required: true
+        default: 'linux/amd64,linux/arm64'
+  push:
+    branches: [ main ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout code
+        uses: actions/checkout@v4
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v2
+        uses: docker/setup-qemu-action@v3
+        with:
+          platforms: all  # 支持所有平台的模拟
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
-
-      - name: Log in to registry (if provided)
-        if: ${{ secrets.DOCKER_USERNAME && secrets.DOCKER_PASSWORD }}
-        uses: docker/login-action@v2
         with:
-          username: ${{ secrets.DOCKER_USERNAME }}
-          password: ${{ secrets.DOCKER_PASSWORD }}
-          registry: ${{ secrets.DOCKER_REGISTRY || 'docker.io' }}
+          driver-opts: image=moby/buildkit:latest  # 使用最新buildkit提升速度
 
-      - name: Build and push multi-arch image (amd64 + arm64)
-        if: ${{ secrets.DOCKER_USERNAME && secrets.DOCKER_PASSWORD && (github.event_name != 'workflow_dispatch' || github.event.inputs.push == 'true') }}
-        run: |
-          PLATFORMS="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.platforms != '' && github.event.inputs.platforms || github.event.inputs.platforms || 'linux/amd64,linux/arm64' }}"
-          TAG="${{ github.event_name == 'workflow_dispatch' && github.event.inputs.tag != '' && github.event.inputs.tag || github.sha }}"
-          docker buildx build \
-            --platform "${PLATFORMS}" \
-            --file Dockerfile \
-            --tag "${{ secrets.DOCKER_REGISTRY || 'docker.io' }}/fsbarm:${TAG}" \
-            --push .
+      # 缓存Docker层以加速构建
+      - name: Cache Docker layers
+        uses: actions/cache@v3
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
 
-      - name: Build local image (no push)
-        if: ${{ !secrets.DOCKER_USERNAME || !secrets.DOCKER_PASSWORD || (github.event_name == 'workflow_dispatch' && github.event.inputs.push != 'true') }}
+      # 登录Docker Hub（需要提前配置secrets）
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      # 准备镜像标签和平台参数
+      - name: Prepare variables
+        id: vars
         run: |
-          docker build . --file Dockerfile --tag fsbarm:$(date +%s)
+          # 镜像标签：手动输入优先，否则用commit SHA，推送main分支时额外加latest标签
+          if [ -n "${{ github.event.inputs.image_tag }}" ]; then
+            echo "TAGS=${{ secrets.DOCKERHUB_USERNAME }}/tg-filestream:${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
+          else
+            if [ "${{ github.event_name }}" = "push" ] && [ "${{ github.ref }}" = "refs/heads/main" ]; then
+              echo "TAGS=${{ secrets.DOCKERHUB_USERNAME }}/tg-filestream:${{ github.sha }},${{ secrets.DOCKERHUB_USERNAME }}/tg-filestream:latest" >> $GITHUB_OUTPUT
+            else
+              echo "TAGS=${{ secrets.DOCKERHUB_USERNAME }}/tg-filestream:${{ github.sha }}" >> $GITHUB_OUTPUT
+            fi
+          fi
+          # 平台参数
+          echo "PLATFORMS=${{ github.event.inputs.platforms || 'linux/amd64,linux/arm64' }}" >> $GITHUB_OUTPUT
+
+      # 构建并推送镜像
+      - name: Build and push
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./Dockerfile  # 使用你的Dockerfile
+          platforms: ${{ steps.vars.outputs.PLATFORMS }}
+          push: true
+          tags: ${{ steps.vars.outputs.TAGS }}
+          # 缓存配置（大幅提升二次构建速度）
+          cache-from: |
+            type=local,src=/tmp/.buildx-cache
+            type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/tg-filestream:cache
+          cache-to: |
+            type=local,dest=/tmp/.buildx-cache-new,mode=max
+            type=registry,ref=${{ secrets.DOCKERHUB_USERNAME }}/tg-filestream:cache,mode=max
+          # 压缩算法优化（更快更小）
+          compression: zstd
+          # 关闭不必要的溯源信息
+          provenance: false
+
+      # 迁移缓存（确保下次构建可用）
+      - name: Move cache
+        run: |
+          rm -rf /tmp/.buildx-cache
+          mv /tmp/.buildx-cache-new /tmp/.buildx-cache
