@@ -17,6 +17,9 @@ from WebStreamer.utils.file_properties import get_hash, get_name
 from WebStreamer.utils.cloudreve import async_remote_download_url_from_vars
 from pyrogram.enums.parse_mode import ParseMode
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
+from pyrogram.enums import MessageEntityType
+# 缓存消息对应的直链，键为机器人回复消息的 id
+STREAM_LINK_CACHE = {}
 
 
 @StreamBot.on_message(
@@ -42,7 +45,7 @@ async def media_receive_handler(_, m: Message):
     short_link = f"{Var.URL}{file_hash}{log_msg.id}"
     logger.info(f"直链： {stream_link} for {m.from_user.first_name}")
     try:
-        await m.reply_text(
+        sent = await m.reply_text(
             text="直链已准备好(￣▽￣)／ 单击下面的链接可直接复制：\n<code>{}</code>\n(<a href='{}'>短链接</a>)".format(
                 stream_link, short_link
             ),
@@ -57,14 +60,17 @@ async def media_receive_handler(_, m: Message):
                 ]
             ),
         )
+        # 记录缓存，供回调解析使用
+        STREAM_LINK_CACHE[sent.id] = stream_link
     except errors.ButtonUrlInvalid:
-        await m.reply_text(
+        sent = await m.reply_text(
             text="<code>{}</code>\n\n短链: {})".format(
                 stream_link, short_link
             ),
             quote=True,
             parse_mode=ParseMode.HTML,
         )
+        STREAM_LINK_CACHE[sent.id] = stream_link
 
 
 @StreamBot.on_callback_query(filters.regex("^save_cloudreve$"))
@@ -74,21 +80,58 @@ async def save_to_cloudreve_handler(_, q: CallbackQuery):
     if Var.ALLOWED_USERS and not ((str(user.id) in Var.ALLOWED_USERS) or (user.username in Var.ALLOWED_USERS)):
         return await q.answer("你没有权限使用此功能。", show_alert=True)
 
-    # 从消息文本中解析直链
-    text = q.message.text or ""
-    m = re.search(r"<code>([^<]+)</code>", text)
-    stream_link = m.group(1).strip() if m else None
+    # 先尝试从缓存中获取直链（由发送消息阶段写入）
+    stream_link = STREAM_LINK_CACHE.get(q.message.id)
 
-    # 兜底：尝试使用短链（如存在）
+    # 从消息内容和内联按钮/实体中健壮地解析直链（作为兜底）
     if not stream_link:
-        m2 = re.search(r"<a href='([^']+)'>短链接</a>", text)
-        stream_link = m2.group(1).strip() if m2 else None
+        text = q.message.text or ""
+        # 优先内联按钮
+        try:
+            markup = getattr(q.message, "reply_markup", None)
+            if markup and getattr(markup, "inline_keyboard", None):
+                for row in markup.inline_keyboard:
+                    for btn in row:
+                        url = getattr(btn, "url", None)
+                        if url:
+                            stream_link = url.strip()
+                            break
+                    if stream_link:
+                        break
+        except Exception:
+            pass
+        # 文本链接实体
+        if not stream_link:
+            entities = getattr(q.message, "entities", None) or []
+            for ent in entities:
+                if ent.type == MessageEntityType.TEXT_LINK and getattr(ent, "url", None):
+                    stream_link = ent.url.strip()
+                    break
+        # code 实体
+        if not stream_link:
+            entities = getattr(q.message, "entities", None) or []
+            for ent in entities:
+                if ent.type == MessageEntityType.CODE:
+                    try:
+                        stream_link = text[ent.offset: ent.offset + ent.length].strip()
+                        break
+                    except Exception:
+                        continue
+        # 纯文本正则
+        if not stream_link:
+            m = re.search(r"https?://\S+", text)
+            stream_link = m.group(0).strip() if m else None
 
     if not stream_link:
         return await q.answer("未能解析直链，请重试或重新生成。", show_alert=True)
 
     try:
         await async_remote_download_url_from_vars(stream_link)
+        # 使用一次后可删除缓存，避免堆积
+        try:
+            STREAM_LINK_CACHE.pop(q.message.id, None)
+        except Exception:
+            pass
         await q.answer("已提交到云盘。", show_alert=True)
     except Exception as e:
         # 将错误返回给用户
