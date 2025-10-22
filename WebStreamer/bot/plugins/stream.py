@@ -1,7 +1,7 @@
 '''
 Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
 LastEditors: ablecats etsy@live.com
-LastEditTime: 2025-10-22 17:26:10
+LastEditTime: 2025-10-22 17:40:18
 Description: 
 '''
 # This file is a part of TG-FileStreamBot
@@ -49,9 +49,6 @@ async def media_receive_handler(_, m: Message):
     stream_link = f"{Var.URL}{log_msg.id}/{quote_plus(get_name(m))}?hash={file_hash}"
     logger.info(f"直链： {stream_link} for {m.from_user.first_name}")
     try:
-        # 记录缓存，供回调解析使用
-        STREAM_LINK_CACHE[sent.id] = stream_link
-        SHORT_LINK_CACHE[sent.id] = short_link
         sent = await m.reply_text(
             text="单击下面的链接可直接复制：\n\n<code>{}</code>".format(
                 short_link
@@ -68,8 +65,10 @@ async def media_receive_handler(_, m: Message):
                 ]
             ),
         )
-    except errors.ButtonUrlInvalid:
+        # 记录缓存，供回调解析使用
         STREAM_LINK_CACHE[sent.id] = stream_link
+        SHORT_LINK_CACHE[sent.id] = short_link
+    except errors.ButtonUrlInvalid:
         sent = await m.reply_text(
             text="<code>{}</code>\n\n短链: {})".format(
                 stream_link, short_link
@@ -77,6 +76,7 @@ async def media_receive_handler(_, m: Message):
             quote=True,
             parse_mode=ParseMode.HTML,
         )
+        STREAM_LINK_CACHE[sent.id] = stream_link
 
 @StreamBot.on_callback_query(filters.regex("^save_cloudreve$"))
 async def save_to_cloudreve_handler(_, q: CallbackQuery):
