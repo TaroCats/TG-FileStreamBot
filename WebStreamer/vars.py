@@ -4,7 +4,6 @@
 import sys
 from os import environ
 from dotenv import load_dotenv
-from WebStreamer.utils.cloudreve import login_and_cache_cloudreve_token, get_cloudreve_token_obj
 
 load_dotenv()
 
@@ -49,12 +48,6 @@ class Var(object):
 
     CLOUDEREVE_TOKEN_OBJ = None
     CLOUDEREVE_ACCESS_TOKEN = None
-    if USE_CLOUDEREVE:
-        try:
-            CLOUDEREVE_TOKEN_OBJ = login_and_cache_cloudreve_token(CLOUDEREVE_API_URL, CLOUDEREVE_USERNAME, CLOUDEREVE_PASSWORD)
-            CLOUDEREVE_ACCESS_TOKEN = CLOUDEREVE_TOKEN_OBJ.get("access_token")
-        except Exception as e:
-            sys.exit(f"Cloudreve token request failed: {e}")
     CLOUDEREVE_DOWNLOAD_PATH = str(environ.get("CLOUDEREVE_DOWNLOAD_PATH", ""))
     if USE_CLOUDEREVE and not CLOUDEREVE_DOWNLOAD_PATH:
         sys.exit("Cloudreve download path is not set")
