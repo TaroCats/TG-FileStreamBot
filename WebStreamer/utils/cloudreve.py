@@ -1,7 +1,7 @@
 '''
 Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
 LastEditors: ablecats etsy@live.com
-LastEditTime: 2025-10-22 13:24:25
+LastEditTime: 2025-10-22 17:05:47
 Description: Cloudreve helper functions (async only)
 '''
 # Cloudreve helper functions - async only
@@ -218,8 +218,7 @@ async def remote_download(src: Any, timeout: int = 15, skew_seconds: int = 60) -
         url_list = [str(src)]
 
     api_base = api_url.rstrip("/")
-    url = f"{api_base}/api/v4/workflow"
-
+    url = f"{api_base}/api/v4/workflow/download"
     result = await _http_post_json(
         url,
         {"dst": dst, "src": url_list},

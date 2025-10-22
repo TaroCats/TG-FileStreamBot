@@ -1,7 +1,7 @@
 '''
 Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
 LastEditors: ablecats etsy@live.com
-LastEditTime: 2025-10-22 13:47:21
+LastEditTime: 2025-10-22 17:00:37
 Description: 
 '''
 # This file is a part of TG-FileStreamBot
@@ -44,27 +44,29 @@ async def media_receive_handler(_, m: Message):
         return await m.reply("你<b>没有权限</b>使用这个机器人。", quote=True)
     log_msg = await m.forward(chat_id=Var.BIN_CHANNEL)
     file_hash = get_hash(log_msg, Var.HASH_LENGTH)
-    stream_link = f"{Var.URL}{log_msg.id}/{quote_plus(get_name(m))}?hash={file_hash}"
     short_link = f"{Var.URL}{file_hash}{log_msg.id}"
+    stream_link = f"{Var.URL}{log_msg.id}/{quote_plus(get_name(m))}?hash={file_hash}"
     logger.info(f"直链： {stream_link} for {m.from_user.first_name}")
     try:
         sent = await m.reply_text(
-            text="直链已准备好(￣▽￣)／ 单击下面的链接可直接复制：\n<code>{}</code>\n(<a href='{}'>短链接</a>)".format(
-                stream_link, short_link
+            text="单击下面的链接可直接复制：\n\n<code>{}</code>".format(
+                short_link
             ),
             quote=True,
             parse_mode=ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup(
                 [
                     [
-                        InlineKeyboardButton("打开", url=stream_link),
-                        InlineKeyboardButton("保存到云盘", callback_data="save_cloudreve"),
+                        InlineKeyboardButton("打开直链", url=stream_link),
+                        InlineKeyboardButton(
+                            "保存到云盘", callback_data="save_cloudreve"),
                     ]
                 ]
             ),
         )
         # 记录缓存，供回调解析使用
         STREAM_LINK_CACHE[sent.id] = stream_link
+        SHORT_LINK_CACHE[sent.id] = short_link
     except errors.ButtonUrlInvalid:
         sent = await m.reply_text(
             text="<code>{}</code>\n\n短链: {})".format(
@@ -116,7 +118,8 @@ async def save_to_cloudreve_handler(_, q: CallbackQuery):
             for ent in entities:
                 if ent.type == MessageEntityType.CODE:
                     try:
-                        stream_link = text[ent.offset: ent.offset + ent.length].strip()
+                        stream_link = text[ent.offset: ent.offset +
+                                           ent.length].strip()
                         break
                     except Exception:
                         continue

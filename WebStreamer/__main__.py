@@ -1,7 +1,7 @@
 '''
 Author: ablecats etsy@live.com
 LastEditors: ablecats etsy@live.com
-LastEditTime: 2025-10-22 13:07:14
+LastEditTime: 2025-10-22 17:06:10
 Description: 
 '''
 # This file is a part of TG-FileStreamBot
@@ -42,20 +42,26 @@ async def start_services():
     await StreamBot.start()
     bot_info = await StreamBot.get_me()
     logging.debug(bot_info)
+
     StreamBot.username = bot_info.username
     logging.info("Initialized Telegram Bot")
+
     await initialize_clients()
     if Var.KEEP_ALIVE:
         asyncio.create_task(ping_server())
+
     await server.setup()
     await web.TCPSite(server, Var.BIND_ADDRESS, Var.PORT).start()
     logging.info("Service Started")
     logging.info("bot =>> {}".format(bot_info.first_name))
+
     if bot_info.dc_id:
         logging.info("DC ID =>> {}".format(str(bot_info.dc_id)))
     logging.info("URL =>> {}".format(Var.URL))
+
     await login_and_cache_cloudreve_token()
     logging.info("Cloudreve token cached")
+
     await idle()
     
         
