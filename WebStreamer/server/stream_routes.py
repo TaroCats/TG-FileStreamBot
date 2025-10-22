@@ -13,7 +13,7 @@ from WebStreamer.bot import multi_clients, work_loads
 from WebStreamer.server.exceptions import FIleNotFound, InvalidHash
 from WebStreamer import Var, StartTime, __version__, StreamBot
 from WebStreamer.utils.custom_dl import ByteStreamer
-from WebStreamer.utils.file_properties import get_hash
+from WebStreamer.utils.file_properties import get_hash, get_name
 from WebStreamer.utils.time_format import get_readable_time
 
 logger = logging.getLogger("routes")
@@ -119,7 +119,7 @@ async def media_streamer(request: web.Request, message_id: int, secure_hash: str
         file_id, index, offset, first_part_cut, last_part_cut, part_count, chunk_size
     )
     mime_type = file_id.mime_type
-    file_name = utils.get_name(file_id)
+    file_name = get_name(file_id)
     disposition = "attachment"
 
     if not mime_type:
