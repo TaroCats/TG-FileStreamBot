@@ -1,7 +1,7 @@
 '''
 Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
 LastEditors: ablecats etsy@live.com
-LastEditTime: 2025-10-22 17:40:18
+LastEditTime: 2025-10-22 17:55:57
 Description: 
 '''
 # This file is a part of TG-FileStreamBot
@@ -22,10 +22,70 @@ import pyrogram.utils
 pyrogram.utils.MIN_CHANNEL_ID = -1009999999999999
 
 # 缓存消息对应的直链，键为机器人回复消息的 id
-SHORT_LINK_CACHE = {}
 STREAM_LINK_CACHE = {}
 
+# 公共函数：生成短链与直链
+def build_links(file_hash: str, msg_id: int, display_name: str):
+    short_link = f"{Var.URL}{file_hash}{msg_id}"
+    stream_link = f"{Var.URL}{msg_id}/{quote_plus(display_name)}?hash={file_hash}"
+    return short_link, stream_link
 
+# 公共函数：统一回复消息并缓存直链
+async def reply_with_stream_links(target_msg: Message, stream_link: str, short_link: str, show_code_link: str = "stream"):
+    try:
+        text_link = stream_link if show_code_link == "stream" else short_link
+        sent = await target_msg.reply_text(
+            text="单击下面的链接可直接复制：\n<code>{}</code>".format(text_link),
+            quote=True,
+            parse_mode=ParseMode.HTML,
+            reply_markup=InlineKeyboardMarkup(
+                [
+                    [
+                        InlineKeyboardButton("打开直链", url=stream_link),
+                        InlineKeyboardButton("保存到云盘", callback_data="save_cloudreve"),
+                    ]
+                ]
+            ),
+        )
+        STREAM_LINK_CACHE[sent.id] = stream_link
+        return sent
+    except errors.ButtonUrlInvalid:
+        sent = await target_msg.reply_text(
+            text="<code>{}</code>\n\n短链: {}".format(stream_link, short_link),
+            quote=True,
+            parse_mode=ParseMode.HTML,
+        )
+        STREAM_LINK_CACHE[sent.id] = stream_link
+        return sent
+
+# 处理消息链接，通过TG消息链接获取文件直链
+
+
+@StreamBot.on_message(filters.private & filters.text & filters.regex(r"https?://t\.me/"))
+async def link_receive_handler(_, m: Message):
+    link = m.text
+    pattern = r"https?://t\.me/(?:c/)?([^/]+)/(\d+)"
+    match = re.match(pattern, link.strip())
+    if not match:
+        return
+    channel_username, message_id = match.groups()
+    try:
+        message = await StreamBot.get_messages(channel_username, int(message_id))
+    except errors.ChannelPrivate:
+        return await m.reply("这个频道是私有的，我不能访问它。", quote=True)
+    except errors.ChannelInvalid:
+        return await m.reply("这个频道不存在。", quote=True)
+    except errors.MessageIdInvalid:
+        return await m.reply("这个消息不存在。", quote=True)
+    if not message.media:
+        return await m.reply("这个消息不是文件。", quote=True)
+    file_hash = get_hash(message, Var.HASH_LENGTH)
+    short_link, stream_link = build_links(file_hash, message.id, get_name(message))
+    logger.info(f"直链： {stream_link} for {m.from_user.first_name}")
+    await reply_with_stream_links(m, stream_link, short_link, show_code_link="stream")
+
+
+# 处理消息中的文件（文档、视频、音频等）
 @StreamBot.on_message(
     filters.private
     & (
@@ -45,38 +105,10 @@ async def media_receive_handler(_, m: Message):
         return await m.reply("你<b>没有权限</b>使用这个机器人。", quote=True)
     log_msg = await m.forward(chat_id=Var.BIN_CHANNEL)
     file_hash = get_hash(log_msg, Var.HASH_LENGTH)
-    short_link = f"{Var.URL}{file_hash}{log_msg.id}"
-    stream_link = f"{Var.URL}{log_msg.id}/{quote_plus(get_name(m))}?hash={file_hash}"
+    short_link, stream_link = build_links(file_hash, log_msg.id, get_name(m))
     logger.info(f"直链： {stream_link} for {m.from_user.first_name}")
-    try:
-        sent = await m.reply_text(
-            text="单击下面的链接可直接复制：\n\n<code>{}</code>".format(
-                short_link
-            ),
-            quote=True,
-            parse_mode=ParseMode.HTML,
-            reply_markup=InlineKeyboardMarkup(
-                [
-                    [
-                        InlineKeyboardButton("打开直链", url=stream_link),
-                        InlineKeyboardButton(
-                            "保存到云盘", callback_data="save_cloudreve"),
-                    ]
-                ]
-            ),
-        )
-        # 记录缓存，供回调解析使用
-        STREAM_LINK_CACHE[sent.id] = stream_link
-        SHORT_LINK_CACHE[sent.id] = short_link
-    except errors.ButtonUrlInvalid:
-        sent = await m.reply_text(
-            text="<code>{}</code>\n\n短链: {})".format(
-                stream_link, short_link
-            ),
-            quote=True,
-            parse_mode=ParseMode.HTML,
-        )
-        STREAM_LINK_CACHE[sent.id] = stream_link
+    await reply_with_stream_links(m, stream_link, short_link, show_code_link="short")
+
 
 @StreamBot.on_callback_query(filters.regex("^save_cloudreve$"))
 async def save_to_cloudreve_handler(_, q: CallbackQuery):
