@@ -1,13 +1,12 @@
 '''
 Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
-LastEditors: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
-LastEditTime: 2025-10-22 09:47:09
+LastEditors: ablecats etsy@live.com
+LastEditTime: 2025-10-22 13:47:21
 Description: 
 '''
 # This file is a part of TG-FileStreamBot
 # Coding : Jyothis Jayanth [@EverythingSuckz]
 
-import logging
 import re
 from pyrogram import filters, errors
 from WebStreamer.vars import Var
@@ -18,6 +17,10 @@ from WebStreamer.utils.cloudreve import async_remote_download_url_from_vars
 from pyrogram.enums.parse_mode import ParseMode
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from pyrogram.enums import MessageEntityType
+# 修复报错
+import pyrogram.utils
+pyrogram.utils.MIN_CHANNEL_ID = -1009999999999999
+
 # 缓存消息对应的直链，键为机器人回复消息的 id
 STREAM_LINK_CACHE = {}
 
