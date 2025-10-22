@@ -1,7 +1,7 @@
 '''
 Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
 LastEditors: ablecats etsy@live.com
-LastEditTime: 2025-10-22 13:17:25
+LastEditTime: 2025-10-22 13:24:25
 Description: Cloudreve helper functions (async only)
 '''
 # Cloudreve helper functions - async only
@@ -189,7 +189,7 @@ async def get_valid_cloudreve_access_token(skew_seconds: int = 60, timeout: int 
     return token_obj["access_token"]
 
 
-async def remote_download(src: Any, timeout: int = 15, endpoint: str = "/api/v4/remote/download", skew_seconds: int = 60) -> Dict[str, Any]:
+async def remote_download(src: Any, timeout: int = 15, skew_seconds: int = 60) -> Dict[str, Any]:
     """
     Create a remote download task.
 
@@ -218,7 +218,7 @@ async def remote_download(src: Any, timeout: int = 15, endpoint: str = "/api/v4/
         url_list = [str(src)]
 
     api_base = api_url.rstrip("/")
-    url = f"{api_base}{endpoint}"
+    url = f"{api_base}/api/v4/workflow"
 
     result = await _http_post_json(
         url,
@@ -231,11 +231,11 @@ async def remote_download(src: Any, timeout: int = 15, endpoint: str = "/api/v4/
     return result
 
 # Alias for backward compatibility
-async def async_remote_download_url_from_vars(url: str, timeout: int = 15, endpoint: str = "/api/v4/remote/download", skew_seconds: int = 60) -> Dict[str, Any]:
+async def async_remote_download_url_from_vars(url: str, timeout: int = 15, skew_seconds: int = 60) -> Dict[str, Any]:
     """
     Backward compatibility alias for remote_download_url_from_vars.
     """
     from WebStreamer.vars import Var
     if not Var.USE_CLOUDEREVE:
         raise ValueError("Cloudreve is disabled (USE_CLOUDEREVE is false)")
-    return await remote_download(url, timeout=timeout, endpoint=endpoint, skew_seconds=skew_seconds)
+    return await remote_download(url, timeout=timeout, skew_seconds=skew_seconds)
