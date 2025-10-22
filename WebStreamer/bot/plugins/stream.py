@@ -71,6 +71,7 @@ async def link_receive_handler(_, m: Message):
     channel_username, message_id = match.groups()
     try:
         message = await StreamBot.get_messages(channel_username, int(message_id))
+        log_msg = await message.forward(chat_id=Var.BIN_CHANNEL)
     except errors.ChannelPrivate:
         return await m.reply("这个频道是私有的，我不能访问它。", quote=True)
     except errors.ChannelInvalid:
@@ -80,7 +81,7 @@ async def link_receive_handler(_, m: Message):
     if not message.media:
         return await m.reply("这个消息不是文件。", quote=True)
     file_hash = get_hash(message, Var.HASH_LENGTH)
-    short_link, stream_link = build_links(file_hash, message.id, get_name(message))
+    short_link, stream_link = build_links(file_hash, log_msg.id, get_name(message))
     logger.info(f"直链： {stream_link} for {m.from_user.first_name}")
     await reply_with_stream_links(m, stream_link, short_link, show_code_link="stream")
 
