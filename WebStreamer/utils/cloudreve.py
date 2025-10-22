@@ -74,13 +74,14 @@ async def login_and_cache_cloudreve_token(timeout: int = 15) -> Dict[str, Any]:
     """
     Login to Cloudreve, cache the token object globally, and return it.
     """
-    email = vars.get("CLOUDEREVE_EMAIL")
-    api_url = vars.get("CLOUDEREVE_API_URL")
-    password = vars.get("CLOUDEREVE_PASSWORD")
+    from WebStreamer.vars import Var
+    email = getattr(Var, "CLOUDEREVE_USERNAME", None) or getattr(Var, "CLOUDEREVE_EMAIL", None)
+    api_url = getattr(Var, "CLOUDEREVE_API_URL", None)
+    password = getattr(Var, "CLOUDEREVE_PASSWORD", None)
     if not api_url:
         raise ValueError("CLOUDEREVE_API_URL is empty")
     if not email or not password:
-        raise ValueError("CLOUDEREVE_EMAIL or CLOUDEREVE_PASSWORD is empty")
+        raise ValueError("CLOUDEREVE_USERNAME/EMAIL or CLOUDEREVE_PASSWORD is empty")
         
     api_base = api_url.rstrip("/")
     token_url = f"{api_base}/api/v4/session/token"
@@ -103,11 +104,18 @@ async def refresh_cloudreve_token(timeout: int = 15) -> Dict[str, Any]:
     """
     Refresh Cloudreve session token and update global cache.
     """
-    api_url = vars.get("CLOUDEREVE_API_URL")
+    from WebStreamer.vars import Var
+    api_url = getattr(Var, "CLOUDEREVE_API_URL", None)
     if not api_url:
         raise ValueError("CLOUDEREVE_API_URL is empty")
     api_base = api_url.rstrip("/")
     refresh_url = f"{api_base}/api/v4/session/token/refresh"
+
+    global TOKEN_OBJ
+    refresh_token = TOKEN_OBJ.get("refresh_token") if TOKEN_OBJ else None
+    if not refresh_token:
+        # No refresh token available; fallback to login
+        return await login_and_cache_cloudreve_token(timeout)
 
     result = await _http_post_json(
         refresh_url,
@@ -118,7 +126,6 @@ async def refresh_cloudreve_token(timeout: int = 15) -> Dict[str, Any]:
     _ensure_api_success(result, "refresh")
     token_obj = _extract_token_obj(result)
 
-    global TOKEN_OBJ
     old_refresh = TOKEN_OBJ.get("refresh_token") if TOKEN_OBJ else None
     if not token_obj.get("refresh_token") and old_refresh:
         token_obj["refresh_token"] = old_refresh
@@ -181,7 +188,7 @@ async def get_valid_cloudreve_access_token(skew_seconds: int = 60, timeout: int 
     return token_obj["access_token"]
 
 
-async def remote_download(src: Any, timeout: int = 15, endpoint: str = "/api/v4/remote/download") -> Dict[str, Any]:
+async def remote_download(src: Any, timeout: int = 15, endpoint: str = "/api/v4/remote/download", skew_seconds: int = 60) -> Dict[str, Any]:
     """
     Create a remote download task.
 
@@ -191,10 +198,9 @@ async def remote_download(src: Any, timeout: int = 15, endpoint: str = "/api/v4/
     from WebStreamer.vars import Var
     if not Var.USE_CLOUDEREVE:
         raise ValueError("Cloudreve is disabled (USE_CLOUDEREVE is false)")
-        
     dst = Var.CLOUDEREVE_DOWNLOAD_PATH
     api_url = Var.CLOUDEREVE_API_URL
-    access_token = await get_valid_cloudreve_access_token(skew_seconds, timeout)
+    access_token = await get_valid_cloudreve_access_token(skew_seconds=skew_seconds, timeout=timeout)
     if not api_url:
         raise ValueError("CLOUDEREVE_API_URL is empty")
     if not access_token:
@@ -230,4 +236,4 @@ async def async_remote_download_url_from_vars(url: str, timeout: int = 15, endpo
     from WebStreamer.vars import Var
     if not Var.USE_CLOUDEREVE:
         raise ValueError("Cloudreve is disabled (USE_CLOUDEREVE is false)")
-    return remote_download(url, timeout=timeout, endpoint=endpoint)
+    return await remote_download(url, timeout=timeout, endpoint=endpoint, skew_seconds=skew_seconds)
