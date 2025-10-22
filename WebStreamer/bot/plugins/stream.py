@@ -13,7 +13,8 @@ from pyrogram import filters, errors
 from WebStreamer.vars import Var
 from urllib.parse import quote_plus
 from WebStreamer.bot import StreamBot, logger
-from WebStreamer.utils import get_hash, get_name, async_remote_download_url_from_vars
+from WebStreamer.utils.file_properties import get_hash, get_name
+from WebStreamer.utils.cloudreve import async_remote_download_url_from_vars
 from pyrogram.enums.parse_mode import ParseMode
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 

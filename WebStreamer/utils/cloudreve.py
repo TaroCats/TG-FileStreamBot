@@ -1,7 +1,7 @@
 '''
 Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
-LastEditors: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
-LastEditTime: 2025-10-22 09:45:08
+LastEditors: ablecats etsy@live.com
+LastEditTime: 2025-10-22 10:00:20
 Description: 
 '''
 # Cloudreve helper functions
@@ -380,7 +380,7 @@ def remote_download_url_from_vars(url: str, timeout: int = 15, endpoint: str = "
     access_token = get_valid_cloudreve_access_token(
         api_url, email, password, skew_seconds=skew_seconds, timeout=timeout)
     # Delegate to base function
-    return remote_download(api_url, access_token, dst, src, timeout=timeout, endpoint=endpoint)
+    return remote_download(api_url, access_token, dst, url, timeout=timeout, endpoint=endpoint)
 
 
 async def async_remote_download_url_from_vars(url: str, timeout: int = 15, endpoint: str = "/api/v4/remote/download", skew_seconds: int = 60) -> Dict[str, Any]:
@@ -397,4 +397,4 @@ async def async_remote_download_url_from_vars(url: str, timeout: int = 15, endpo
     password = Var.CLOUDEREVE_PASSWORD
     dst = Var.CLOUDEREVE_DOWNLOAD_PATH
     access_token = await async_get_valid_cloudreve_access_token(api_url, email, password, skew_seconds=skew_seconds, timeout=timeout)
-    return await async_remote_download(api_url, access_token, dst, src, timeout=timeout, endpoint=endpoint)
+    return await async_remote_download(api_url, access_token, dst, url, timeout=timeout, endpoint=endpoint)

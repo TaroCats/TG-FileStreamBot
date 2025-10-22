@@ -11,7 +11,10 @@ from aiohttp import web
 from aiohttp.http_exceptions import BadStatusLine
 from WebStreamer.bot import multi_clients, work_loads
 from WebStreamer.server.exceptions import FIleNotFound, InvalidHash
-from WebStreamer import Var, utils, StartTime, __version__, StreamBot
+from WebStreamer import Var, StartTime, __version__, StreamBot
+from WebStreamer.utils.custom_dl import ByteStreamer
+from WebStreamer.utils.file_properties import get_hash
+from WebStreamer.utils.time_format import get_readable_time
 
 logger = logging.getLogger("routes")
 
@@ -23,7 +26,7 @@ async def root_route_handler(_):
     return web.json_response(
         {
             "server_status": "running",
-            "uptime": utils.get_readable_time(time.time() - StartTime),
+            "uptime": get_readable_time(time.time() - StartTime),
             "telegram_bot": "@" + StreamBot.username,
             "connected_bots": len(multi_clients),
             "loads": dict(
@@ -75,14 +78,14 @@ async def media_streamer(request: web.Request, message_id: int, secure_hash: str
         logger.debug(f"Using cached ByteStreamer object for client {index}")
     else:
         logger.debug(f"Creating new ByteStreamer object for client {index}")
-        tg_connect = utils.ByteStreamer(faster_client)
+        tg_connect = ByteStreamer(faster_client)
         class_cache[faster_client] = tg_connect
     logger.debug("before calling get_file_properties")
     file_id = await tg_connect.get_file_properties(message_id)
     logger.debug("after calling get_file_properties")
     
     
-    if utils.get_hash(file_id.unique_id, Var.HASH_LENGTH) != secure_hash:
+    if get_hash(file_id.unique_id, Var.HASH_LENGTH) != secure_hash:
         logger.debug(f"Invalid hash for message with ID {message_id}")
         raise InvalidHash
     

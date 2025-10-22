@@ -1,7 +1,7 @@
 import math
 import asyncio
 import logging
-from WebStreamer import Var
+from WebStreamer.vars import Var
 from typing import Dict, Union
 from WebStreamer.bot import work_loads
 from pyrogram import Client, utils, raw

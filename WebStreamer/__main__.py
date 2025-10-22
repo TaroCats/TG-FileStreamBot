@@ -7,10 +7,10 @@ import logging
 from .vars import Var
 from aiohttp import web
 from pyrogram import idle
-from WebStreamer import utils
 from WebStreamer import StreamBot
 from WebStreamer.server import web_server
 from WebStreamer.bot.clients import initialize_clients
+from WebStreamer.utils.keepalive import ping_server
 
 
 logging.basicConfig(
@@ -39,7 +39,7 @@ async def start_services():
     logging.info("Initialized Telegram Bot")
     await initialize_clients()
     if Var.KEEP_ALIVE:
-        asyncio.create_task(utils.ping_server())
+        asyncio.create_task(ping_server())
     await server.setup()
     await web.TCPSite(server, Var.BIND_ADDRESS, Var.PORT).start()
     logging.info("Service Started")
