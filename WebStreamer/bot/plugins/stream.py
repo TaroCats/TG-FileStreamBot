@@ -1,14 +1,21 @@
+'''
+Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
+LastEditors: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
+LastEditTime: 2025-10-22 09:47:09
+Description: 
+'''
 # This file is a part of TG-FileStreamBot
 # Coding : Jyothis Jayanth [@EverythingSuckz]
 
 import logging
+import re
 from pyrogram import filters, errors
 from WebStreamer.vars import Var
 from urllib.parse import quote_plus
 from WebStreamer.bot import StreamBot, logger
-from WebStreamer.utils import get_hash, get_name
+from WebStreamer.utils import get_hash, get_name, async_remote_download_url_from_vars
 from pyrogram.enums.parse_mode import ParseMode
-from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton
+from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 
 
 @StreamBot.on_message(
@@ -41,7 +48,12 @@ async def media_receive_handler(_, m: Message):
             quote=True,
             parse_mode=ParseMode.HTML,
             reply_markup=InlineKeyboardMarkup(
-                [[InlineKeyboardButton("打开", url=stream_link)]]
+                [
+                    [
+                        InlineKeyboardButton("打开", url=stream_link),
+                        InlineKeyboardButton("保存到云盘", callback_data="save_cloudreve"),
+                    ]
+                ]
             ),
         )
     except errors.ButtonUrlInvalid:
@@ -52,3 +64,31 @@ async def media_receive_handler(_, m: Message):
             quote=True,
             parse_mode=ParseMode.HTML,
         )
+
+
+@StreamBot.on_callback_query(filters.regex("^save_cloudreve$"))
+async def save_to_cloudreve_handler(_, q: CallbackQuery):
+    # 权限校验（复用与消息处理一致的策略）
+    user = q.from_user
+    if Var.ALLOWED_USERS and not ((str(user.id) in Var.ALLOWED_USERS) or (user.username in Var.ALLOWED_USERS)):
+        return await q.answer("你没有权限使用此功能。", show_alert=True)
+
+    # 从消息文本中解析直链
+    text = q.message.text or ""
+    m = re.search(r"<code>([^<]+)</code>", text)
+    stream_link = m.group(1).strip() if m else None
+
+    # 兜底：尝试使用短链（如存在）
+    if not stream_link:
+        m2 = re.search(r"<a href='([^']+)'>短链接</a>", text)
+        stream_link = m2.group(1).strip() if m2 else None
+
+    if not stream_link:
+        return await q.answer("未能解析直链，请重试或重新生成。", show_alert=True)
+
+    try:
+        await async_remote_download_url_from_vars(stream_link)
+        await q.answer("已提交到云盘。", show_alert=True)
+    except Exception as e:
+        # 将错误返回给用户
+        await q.answer(f"云盘提交失败：{e}", show_alert=True)
