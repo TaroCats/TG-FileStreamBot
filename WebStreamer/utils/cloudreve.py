@@ -1,15 +1,17 @@
 '''
 Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
 LastEditors: ablecats etsy@live.com
-LastEditTime: 2025-10-22 11:11:02
+LastEditTime: 2025-10-22 13:17:25
 Description: Cloudreve helper functions (async only)
 '''
 # Cloudreve helper functions - async only
-from typing import Any as _AnyType
+
 import json
-from typing import Optional, Dict, Any
 import time
 import aiohttp
+import logging
+from typing import Any as _AnyType
+from typing import Optional, Dict, Any
 from datetime import datetime
 
 # Module-level cache for token object
@@ -44,7 +46,7 @@ def _to_epoch_sec(v: _AnyType) -> Optional[int]:
 
 def _ensure_api_success(result: Dict[str, Any], action: str) -> None:
     code = result.get("code")
-    if code == 0:
+    if code != 0:
         msg = result.get("msg") or f"{action} failed"
         raise RuntimeError(f"Cloudreve {action} error: code={code}, msg={msg}")
 
@@ -85,7 +87,6 @@ async def login_and_cache_cloudreve_token(timeout: int = 15) -> Dict[str, Any]:
         
     api_base = api_url.rstrip("/")
     token_url = f"{api_base}/api/v4/session/token"
-
     result = await _http_post_json(
         token_url,
         {"email": email, "password": password},
@@ -225,6 +226,7 @@ async def remote_download(src: Any, timeout: int = 15, endpoint: str = "/api/v4/
         {"Authorization": f"Bearer {access_token}"},
         timeout,
     )
+    logging.info(f"Cloudreve remote download response: {url_list}")
     _ensure_api_success(result, "remote_download")
     return result
 

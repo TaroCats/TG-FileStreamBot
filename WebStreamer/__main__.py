@@ -1,3 +1,9 @@
+'''
+Author: ablecats etsy@live.com
+LastEditors: ablecats etsy@live.com
+LastEditTime: 2025-10-22 13:07:14
+Description: 
+'''
 # This file is a part of TG-FileStreamBot
 # Coding : Jyothis Jayanth [@EverythingSuckz]
 
@@ -11,6 +17,7 @@ from WebStreamer import StreamBot
 from WebStreamer.server import web_server
 from WebStreamer.bot.clients import initialize_clients
 from WebStreamer.utils.keepalive import ping_server
+from WebStreamer.utils.cloudreve import login_and_cache_cloudreve_token
 
 
 logging.basicConfig(
@@ -47,8 +54,11 @@ async def start_services():
     if bot_info.dc_id:
         logging.info("DC ID =>> {}".format(str(bot_info.dc_id)))
     logging.info("URL =>> {}".format(Var.URL))
+    await login_and_cache_cloudreve_token()
+    logging.info("Cloudreve token cached")
     await idle()
-
+    
+        
 async def cleanup():
     await server.cleanup()
     await StreamBot.stop()
