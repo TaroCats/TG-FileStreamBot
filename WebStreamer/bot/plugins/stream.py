@@ -58,12 +58,157 @@ async def reply_with_stream_links(target_msg: Message, stream_link: str, short_l
         STREAM_LINK_CACHE[sent.id] = stream_link
         return sent
 
+# 新增：解析消息并将其复制/重发到 BIN_CHANNEL（绕过频道转发限制）
+async def send_to_bin_parsing_message(msg: Message) -> Message:
+    # 1) 先尝试复制消息（copyMessage 会保留内容但不带“转发自”）
+    try:
+        return await StreamBot.copy_message(
+            chat_id=Var.BIN_CHANNEL,
+            from_chat_id=msg.chat.id,
+            message_id=msg.id,
+        )
+    except Exception:
+        pass
+
+    # 2) 根据具体类型使用 file_id 重新发送（保留 caption 与按钮）
+    try:
+        if msg.document:
+            return await StreamBot.send_document(
+                Var.BIN_CHANNEL,
+                msg.document.file_id,
+                caption=(msg.caption or ""),
+                caption_entities=msg.caption_entities,
+                reply_markup=msg.reply_markup,
+            )
+        if msg.video:
+            return await StreamBot.send_video(
+                Var.BIN_CHANNEL,
+                msg.video.file_id,
+                caption=(msg.caption or ""),
+                caption_entities=msg.caption_entities,
+                reply_markup=msg.reply_markup,
+            )
+        if msg.audio:
+            return await StreamBot.send_audio(
+                Var.BIN_CHANNEL,
+                msg.audio.file_id,
+                caption=(msg.caption or ""),
+                caption_entities=msg.caption_entities,
+                reply_markup=msg.reply_markup,
+            )
+        if msg.animation:
+            return await StreamBot.send_animation(
+                Var.BIN_CHANNEL,
+                msg.animation.file_id,
+                caption=(msg.caption or ""),
+                caption_entities=msg.caption_entities,
+                reply_markup=msg.reply_markup,
+            )
+        if msg.voice:
+            return await StreamBot.send_voice(
+                Var.BIN_CHANNEL,
+                msg.voice.file_id,
+                caption=(msg.caption or ""),
+                caption_entities=msg.caption_entities,
+                reply_markup=msg.reply_markup,
+            )
+        if msg.video_note:
+            return await StreamBot.send_video_note(
+                Var.BIN_CHANNEL,
+                msg.video_note.file_id,
+            )
+        if msg.photo:
+            return await StreamBot.send_photo(
+                Var.BIN_CHANNEL,
+                msg.photo.file_id,
+                caption=(msg.caption or ""),
+                caption_entities=msg.caption_entities,
+                reply_markup=msg.reply_markup,
+            )
+        if msg.sticker:
+            return await StreamBot.send_sticker(
+                Var.BIN_CHANNEL,
+                msg.sticker.file_id,
+            )
+        # 纯文本兜底
+        return await StreamBot.send_message(
+            Var.BIN_CHANNEL,
+            (msg.text or msg.caption or ""),
+            entities=msg.entities,
+            reply_markup=msg.reply_markup,
+        )
+    except errors.RPCError:
+        # 3) 如果以上都失败，最后尝试下载并重新上传（可能较慢）
+        try:
+            path = await msg.download()
+            if msg.document:
+                return await StreamBot.send_document(
+                    Var.BIN_CHANNEL,
+                    path,
+                    caption=(msg.caption or ""),
+                    caption_entities=msg.caption_entities,
+                    reply_markup=msg.reply_markup,
+                )
+            if msg.video:
+                return await StreamBot.send_video(
+                    Var.BIN_CHANNEL,
+                    path,
+                    caption=(msg.caption or ""),
+                    caption_entities=msg.caption_entities,
+                    reply_markup=msg.reply_markup,
+                )
+            if msg.audio:
+                return await StreamBot.send_audio(
+                    Var.BIN_CHANNEL,
+                    path,
+                    caption=(msg.caption or ""),
+                    caption_entities=msg.caption_entities,
+                    reply_markup=msg.reply_markup,
+                )
+            if msg.animation:
+                return await StreamBot.send_animation(
+                    Var.BIN_CHANNEL,
+                    path,
+                    caption=(msg.caption or ""),
+                    caption_entities=msg.caption_entities,
+                    reply_markup=msg.reply_markup,
+                )
+            if msg.voice:
+                return await StreamBot.send_voice(
+                    Var.BIN_CHANNEL,
+                    path,
+                    caption=(msg.caption or ""),
+                    caption_entities=msg.caption_entities,
+                    reply_markup=msg.reply_markup,
+                )
+            if msg.photo:
+                return await StreamBot.send_photo(
+                    Var.BIN_CHANNEL,
+                    path,
+                    caption=(msg.caption or ""),
+                    caption_entities=msg.caption_entities,
+                    reply_markup=msg.reply_markup,
+                )
+            if msg.video_note:
+                return await StreamBot.send_video_note(Var.BIN_CHANNEL, path)
+            if msg.sticker:
+                return await StreamBot.send_sticker(Var.BIN_CHANNEL, path)
+            return await StreamBot.send_message(
+                Var.BIN_CHANNEL,
+                (msg.text or msg.caption or ""),
+                entities=msg.entities,
+                reply_markup=msg.reply_markup,
+            )
+        except Exception as e:
+            raise e
+
 # 处理消息链接，通过TG消息链接获取文件直链
 
 
 @StreamBot.on_message(filters.private & filters.text & filters.regex(r"https?://t\.me/"))
 async def link_receive_handler(_, m: Message):
     link = m.text
+    # 修复误改的正则表达式，保持原始逻辑
     pattern = r"https?://t\.me/(?:c/)?([^/]+)/(\d+)"
     match = re.match(pattern, link.strip())
     if not match:
@@ -71,7 +216,8 @@ async def link_receive_handler(_, m: Message):
     channel_username, message_id = match.groups()
     try:
         message = await StreamBot.get_messages(channel_username, int(message_id))
-        log_msg = await message.forward(chat_id=Var.BIN_CHANNEL)
+        # 替换：不再直接转发，改为解析并重发到 BIN_CHANNEL
+        log_msg = await send_to_bin_parsing_message(message)
     except errors.ChannelPrivate:
         return await m.reply("这个频道是私有的，我不能访问它。", quote=True)
     except errors.ChannelInvalid:
