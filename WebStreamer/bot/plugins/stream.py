@@ -229,7 +229,7 @@ async def link_receive_handler(_, m: Message):
     file_hash = get_hash(message, Var.HASH_LENGTH)
     short_link, stream_link = build_links(file_hash, log_msg.id, get_name(message))
     logger.info(f"直链： {short_link} for {m.from_user.first_name}")
-    await reply_with_stream_links(m, stream_link, short_link, show_code_link="stream")
+    await reply_with_stream_links(m, stream_link, short_link, show_code_link="short")
 
 
 # 处理消息中的文件（文档、视频、音频等）
