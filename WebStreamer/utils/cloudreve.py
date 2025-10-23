@@ -1,7 +1,7 @@
 '''
 Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
 LastEditors: ablecats etsy@live.com
-LastEditTime: 2025-10-22 17:05:47
+LastEditTime: 2025-10-23 16:11:51
 Description: Cloudreve helper functions (async only)
 '''
 # Cloudreve helper functions - async only
@@ -65,6 +65,17 @@ async def _http_post_json(url: str, payload: Dict[str, Any], headers: Optional[D
     timeout_obj = aiohttp.ClientTimeout(total=timeout)
     async with aiohttp.ClientSession(timeout=timeout_obj) as session:
         async with session.post(url, json=payload, headers=headers) as resp:
+            text = await resp.text()
+            try:
+                return json.loads(text)
+            except Exception:
+                raise RuntimeError(f"Cloudreve invalid response: {text[:200]}")
+
+
+async def _http_get_json(url: str, headers: Optional[Dict[str, str]] = None, timeout: int = 15, params: Optional[Dict[str, Any]] = None) -> Dict[str, Any]:
+    timeout_obj = aiohttp.ClientTimeout(total=timeout)
+    async with aiohttp.ClientSession(timeout=timeout_obj) as session:
+        async with session.get(url, params=params, headers=headers) as resp:
             text = await resp.text()
             try:
                 return json.loads(text)
@@ -188,7 +199,99 @@ async def get_valid_cloudreve_access_token(skew_seconds: int = 60, timeout: int 
     token_obj = await ensure_valid_cloudreve_token(skew_seconds, timeout)
     return token_obj["access_token"]
 
+# 获取文件列表
+async def file_list(page_size: int = 20, uri: str = "cloudreve://my/", page: int = 0, timeout: int = 15, skew_seconds: int = 60) -> Dict[str, Any]:
+    """
+    List files in Cloudreve.
+    URL: /api/v4/file
+    Headers: Authorization: Bearer <access_token>
+    Query: {"page_size": 20, "uri": "cloudreve://my/", "page": 0}
+    """
+    from WebStreamer.vars import Var
+    if not Var.USE_CLOUDEREVE:
+        raise ValueError("Cloudreve is disabled (USE_CLOUDEREVE is false)")
+    api_url = Var.CLOUDEREVE_API_URL
+    access_token = await get_valid_cloudreve_access_token(skew_seconds=skew_seconds, timeout=timeout)
+    if not api_url:
+        raise ValueError("CLOUDEREVE_API_URL is empty")
+    if not access_token:
+        raise ValueError("Cloudreve access_token is empty")
 
+    api_base = api_url.rstrip("/")
+    url = f"{api_base}/api/v4/file"
+    result = await _http_get_json(
+        url,
+        {"Authorization": f"Bearer {access_token}"},
+        timeout,
+        {"page_size": int(page_size), "uri": str(uri), "page": int(page)}
+    )
+    logging.info(f"Cloudreve file list: uri={uri}, page={page}, page_size={page_size}")
+    _ensure_api_success(result, "file_list")
+    return result
+
+# 分享文件
+async def share_file(uri: str = "", timeout: int = 15, skew_seconds: int = 60) -> Dict[str, Any]:
+    """
+    Share a file in Cloudreve.
+    URL: /api/v4/share
+    Headers: Authorization: Bearer <access_token>
+    Body: {"uri": "cloudreve://my/file.txt"}
+    """
+    from WebStreamer.vars import Var
+    if not Var.USE_CLOUDEREVE:
+        raise ValueError("Cloudreve is disabled (USE_CLOUDEREVE is false)")
+    api_url = Var.CLOUDEREVE_API_URL
+    access_token = await get_valid_cloudreve_access_token(skew_seconds=skew_seconds, timeout=timeout)
+    if not api_url:
+        raise ValueError("CLOUDEREVE_API_URL is empty")
+    if not access_token:
+        raise ValueError("Cloudreve access_token is empty")
+    if not uri:
+        raise ValueError("Share file uri is empty")
+
+    api_base = api_url.rstrip("/")
+    url = f"{api_base}/api/v4/share"
+    result = await _http_post_json(
+        url,
+        {"uri": str(uri)},
+        {"Authorization": f"Bearer {access_token}"},
+        timeout,
+    )
+    logging.info(f"Cloudreve share file: uri={uri}")
+    _ensure_api_success(result, "share_file")
+    return result
+
+# 获取远程下载任务列表
+async def remote_list(page_size: int = 20, category: str = "general", timeout: int = 15, skew_seconds: int = 60) -> Dict[str, Any]:
+    """
+    List remote download tasks.
+    URL: /api/v4/workflow
+    Headers: Authorization: Bearer <access_token>
+    Body: {"uri": 20, "category": "general|downloading|downloaded"}
+    """
+    from WebStreamer.vars import Var
+    if not Var.USE_CLOUDEREVE:
+        raise ValueError("Cloudreve is disabled (USE_CLOUDEREVE is false)")
+    api_url = Var.CLOUDEREVE_API_URL
+    access_token = await get_valid_cloudreve_access_token(skew_seconds=skew_seconds, timeout=timeout)
+    if not api_url:
+        raise ValueError("CLOUDEREVE_API_URL is empty")
+    if not access_token:
+        raise ValueError("Cloudreve access_token is empty")
+
+    api_base = api_url.rstrip("/")
+    url = f"{api_base}/api/v4/workflow"
+    result = await _http_get_json(
+        url,
+        {"Authorization": f"Bearer {access_token}"},
+        timeout,
+        {"page_size": int(page_size), "category": str(category)}
+    )
+    logging.info(f"Cloudreve remote list: category={category}, page_size={page_size}")
+    _ensure_api_success(result, "remote_list")
+    return result
+
+# 创建远程下载任务
 async def remote_download(src: Any, timeout: int = 15, skew_seconds: int = 60) -> Dict[str, Any]:
     """
     Create a remote download task.
@@ -228,13 +331,3 @@ async def remote_download(src: Any, timeout: int = 15, skew_seconds: int = 60) -
     logging.info(f"Cloudreve remote download response: {url_list}")
     _ensure_api_success(result, "remote_download")
     return result
-
-# Alias for backward compatibility
-async def async_remote_download_url_from_vars(url: str, timeout: int = 15, skew_seconds: int = 60) -> Dict[str, Any]:
-    """
-    Backward compatibility alias for remote_download_url_from_vars.
-    """
-    from WebStreamer.vars import Var
-    if not Var.USE_CLOUDEREVE:
-        raise ValueError("Cloudreve is disabled (USE_CLOUDEREVE is false)")
-    return await remote_download(url, timeout=timeout, skew_seconds=skew_seconds)
