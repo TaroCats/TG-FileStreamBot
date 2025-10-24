@@ -1,7 +1,7 @@
 '''
 Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
 LastEditors: ablecats etsy@live.com
-LastEditTime: 2025-10-23 17:11:18
+LastEditTime: 2025-10-24 08:38:19
 Description: 
 '''
 # This file is a part of TG-FileStreamBot
@@ -369,7 +369,7 @@ async def rdl_command_handler(_, m: Message):
         return await m.reply("请在/rdl命令后提供一个有效的下载链接，或回复包含直链的消息使用 /rdl。", quote=True)
     
     try:
-        await async_remote_download_url_from_vars(stream_link)
+        await remote_download(stream_link)
         await m.reply("已提交到云盘。", quote=True)
     except Exception as e:
         await m.reply(f"云盘提交失败：{e}", quote=True)
