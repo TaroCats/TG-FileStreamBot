@@ -1,7 +1,7 @@
 '''
 Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
 LastEditors: ablecats etsy@live.com
-LastEditTime: 2025-10-23 16:11:51
+LastEditTime: 2025-10-28 17:45:03
 Description: Cloudreve helper functions (async only)
 '''
 # Cloudreve helper functions - async only
@@ -49,6 +49,7 @@ def _ensure_api_success(result: Dict[str, Any], action: str) -> None:
     if code != 0:
         msg = result.get("msg") or f"{action} failed"
         raise RuntimeError(f"Cloudreve {action} error: code={code}, msg={msg}")
+    return code
 
 
 def _extract_token_obj(result: Dict[str, Any]) -> Dict[str, Any]:
@@ -88,14 +89,16 @@ async def login_and_cache_cloudreve_token(timeout: int = 15) -> Dict[str, Any]:
     Login to Cloudreve, cache the token object globally, and return it.
     """
     from WebStreamer.vars import Var
-    email = getattr(Var, "CLOUDEREVE_USERNAME", None) or getattr(Var, "CLOUDEREVE_EMAIL", None)
+    email = getattr(Var, "CLOUDEREVE_USERNAME", None) or getattr(
+        Var, "CLOUDEREVE_EMAIL", None)
     api_url = getattr(Var, "CLOUDEREVE_API_URL", None)
     password = getattr(Var, "CLOUDEREVE_PASSWORD", None)
     if not api_url:
         raise ValueError("CLOUDEREVE_API_URL is empty")
     if not email or not password:
-        raise ValueError("CLOUDEREVE_USERNAME/EMAIL or CLOUDEREVE_PASSWORD is empty")
-        
+        raise ValueError(
+            "CLOUDEREVE_USERNAME/EMAIL or CLOUDEREVE_PASSWORD is empty")
+
     api_base = api_url.rstrip("/")
     token_url = f"{api_base}/api/v4/session/token"
     result = await _http_post_json(
@@ -200,6 +203,8 @@ async def get_valid_cloudreve_access_token(skew_seconds: int = 60, timeout: int 
     return token_obj["access_token"]
 
 # 获取文件列表
+
+
 async def file_list(page_size: int = 20, uri: str = "cloudreve://my/", page: int = 0, timeout: int = 15, skew_seconds: int = 60) -> Dict[str, Any]:
     """
     List files in Cloudreve.
@@ -225,11 +230,14 @@ async def file_list(page_size: int = 20, uri: str = "cloudreve://my/", page: int
         timeout,
         {"page_size": int(page_size), "uri": str(uri), "page": int(page)}
     )
-    logging.info(f"Cloudreve file list: uri={uri}, page={page}, page_size={page_size}")
+    logging.info(
+        f"Cloudreve file list: uri={uri}, page={page}, page_size={page_size}")
     _ensure_api_success(result, "file_list")
     return result
 
 # 分享文件
+
+
 async def share_file(uri: str = "", timeout: int = 15, skew_seconds: int = 60) -> Dict[str, Any]:
     """
     Share a file in Cloudreve.
@@ -262,6 +270,8 @@ async def share_file(uri: str = "", timeout: int = 15, skew_seconds: int = 60) -
     return result
 
 # 获取远程下载任务列表
+
+
 async def remote_list(page_size: int = 20, category: str = "general", timeout: int = 15, skew_seconds: int = 60) -> Dict[str, Any]:
     """
     List remote download tasks.
@@ -287,11 +297,14 @@ async def remote_list(page_size: int = 20, category: str = "general", timeout: i
         timeout,
         {"page_size": int(page_size), "category": str(category)}
     )
-    logging.info(f"Cloudreve remote list: category={category}, page_size={page_size}")
+    logging.info(
+        f"Cloudreve remote list: category={category}, page_size={page_size}")
     _ensure_api_success(result, "remote_list")
     return result
 
 # 创建远程下载任务
+
+
 async def remote_download(src: Any, timeout: int = 15, skew_seconds: int = 60) -> Dict[str, Any]:
     """
     Create a remote download task.
@@ -329,5 +342,8 @@ async def remote_download(src: Any, timeout: int = 15, skew_seconds: int = 60) -
         timeout,
     )
     logging.info(f"Cloudreve remote download response: {url_list}")
-    _ensure_api_success(result, "remote_download")
+    code = _ensure_api_success(result, "remote_download")
+    if code == 401:
+        await login_and_cache_cloudreve_token()
+        result = await remote_download(src, timeout, skew_seconds)
     return result
