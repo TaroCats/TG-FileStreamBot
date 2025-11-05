@@ -1,7 +1,7 @@
 '''
 Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
 LastEditors: ablecats etsy@live.com
-LastEditTime: 2025-10-28 17:45:03
+LastEditTime: 2025-11-05 15:55:12
 Description: Cloudreve helper functions (async only)
 '''
 # Cloudreve helper functions - async only
@@ -138,7 +138,10 @@ async def refresh_cloudreve_token(timeout: int = 15) -> Dict[str, Any]:
         None,
         timeout,
     )
-    _ensure_api_success(result, "refresh")
+    refreshCode = _ensure_api_success(result, "refresh")
+    if refreshCode != 0:
+        return await login_and_cache_cloudreve_token(timeout)
+
     token_obj = _extract_token_obj(result)
 
     old_refresh = TOKEN_OBJ.get("refresh_token") if TOKEN_OBJ else None
@@ -343,7 +346,7 @@ async def remote_download(src: Any, timeout: int = 15, skew_seconds: int = 60) -
     )
     logging.info(f"Cloudreve remote download response: {url_list}")
     code = _ensure_api_success(result, "remote_download")
-    if code == 401:
-        await login_and_cache_cloudreve_token()
+    if code != 0:
+        await refresh_cloudreve_token(timeout)
         result = await remote_download(src, timeout, skew_seconds)
     return result
