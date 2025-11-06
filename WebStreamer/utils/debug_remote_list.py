@@ -1,4 +1,5 @@
 
+
 from pathlib import Path
 from dotenv import load_dotenv
 import logging
@@ -151,9 +152,8 @@ async def main(cfg: argparse.Namespace) -> int:
         #              cfg.category, len(tasks) if tasks else 0)
         # If search_url is provided, try to locate the specific task
 
-        matched = await search_download_by_url(result=result, url='http://tg.taro.cat/d76fb562', category='downloading')
-        print(json.dumps(matched or {"match": None},
-              ensure_ascii=False, indent=2))
+        matched = await search_download_by_url(result=result, url='https://tg.taro.cat/63/video-2025-11-06_15-57-41.mp4?hash=c12fa1', category='downloading')
+        print(json.dumps(matched, ensure_ascii=False, indent=2))
     except Exception as e:
         logging.exception("remote_list failed: %s", e)
         print(f"ERROR: {e}")

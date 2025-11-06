@@ -1,13 +1,14 @@
 '''
 Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
 LastEditors: ablecats etsy@live.com
-LastEditTime: 2025-11-06 16:00:07
+LastEditTime: 2025-11-06 16:17:06
 Description: Cloudreve helper functions (async only)
 '''
 # Cloudreve helper functions - async only
 
 import array
 import json
+from math import log
 import time
 import aiohttp
 import logging
@@ -338,19 +339,25 @@ async def search_download_by_url(result: Dict[str, Any] = {}, url: str = "", cat
                     .get('props', {})
                     .get('src_str')
                 )
+                status = item.get('status')
+                if status == 'canceled':
+                    continue
+                
                 if src_str == url:
+                    logging.info(f"Cloudreve {category} task: src_str={src_str} matches")
+                    files = download_props.get('files', []) or []
+
+                    progress = None
                     download_props = (
                         item.get('summary', {})
                         .get('props', {})
                         .get('download', {})
                     )
-                    files = download_props.get('files', []) or []
-                    progress = None
+
                     if isinstance(files, list) and files:
                         progress = files[0].get('progress')
                     elif isinstance(files, dict):
                         progress = files.get('progress')
-
                     return {
                         'name': download_props.get('name'),
                         'status': item.get('status'),
