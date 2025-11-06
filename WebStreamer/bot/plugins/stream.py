@@ -1,7 +1,7 @@
 '''
 Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
 LastEditors: ablecats etsy@live.com
-LastEditTime: 2025-10-24 08:38:19
+LastEditTime: 2025-11-06 11:07:52
 Description: 
 '''
 # This file is a part of TG-FileStreamBot
@@ -13,7 +13,7 @@ from WebStreamer.vars import Var
 from urllib.parse import quote_plus
 from WebStreamer.bot import StreamBot, logger
 from WebStreamer.utils.file_properties import get_hash, get_name
-from WebStreamer.utils.cloudreve import file_list, remote_download
+from WebStreamer.utils.cloudreve import file_list, remote_download, refresh_cloudreve_token
 from pyrogram.enums.parse_mode import ParseMode
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from pyrogram.enums import MessageEntityType
@@ -25,17 +25,23 @@ pyrogram.utils.MIN_CHANNEL_ID = -1009999999999999
 STREAM_LINK_CACHE = {}
 
 # 公共函数：生成短链与直链
+
+
 def build_links(file_hash: str, msg_id: int, display_name: str):
     short_link = f"{Var.URL}{file_hash}{msg_id}"
     stream_link = f"{Var.URL}{msg_id}/{quote_plus(display_name)}?hash={file_hash}"
     return short_link, stream_link
 # 提取URL的公共函数
+
+
 def extract_url_from_message(msg: Message):
     if not msg:
         return None
-    text = (getattr(msg, "text", None) or getattr(msg, "caption", None) or "").strip()
+    text = (getattr(msg, "text", None) or getattr(
+        msg, "caption", None) or "").strip()
     # 优先从实体提取（包含文本链接与裸URL）
-    entities = (getattr(msg, "entities", None) or []) + (getattr(msg, "caption_entities", None) or [])
+    entities = (getattr(msg, "entities", None) or []) + \
+        (getattr(msg, "caption_entities", None) or [])
     for ent in entities:
         if ent.type == MessageEntityType.TEXT_LINK and getattr(ent, "url", None):
             return ent.url.strip()
@@ -48,6 +54,8 @@ def extract_url_from_message(msg: Message):
     m = re.search(r"https?://\S+", text)
     return m.group(0).strip() if m else None
 # 公共函数：统一回复消息并缓存直链
+
+
 async def reply_with_stream_links(target_msg: Message, stream_link: str, short_link: str, show_code_link: str = "stream"):
     try:
         text_link = stream_link if show_code_link == "stream" else short_link
@@ -59,7 +67,8 @@ async def reply_with_stream_links(target_msg: Message, stream_link: str, short_l
                 [
                     [
                         InlineKeyboardButton("打开直链", url=stream_link),
-                        InlineKeyboardButton("保存到云盘", callback_data="save_cloudreve"),
+                        InlineKeyboardButton(
+                            "保存到云盘", callback_data="save_cloudreve"),
                     ]
                 ]
             ),
@@ -76,6 +85,8 @@ async def reply_with_stream_links(target_msg: Message, stream_link: str, short_l
         return sent
 
 # 新增：解析消息并将其复制/重发到 BIN_CHANNEL（绕过频道转发限制）
+
+
 async def send_to_bin_parsing_message(msg: Message) -> Message:
     # 1) 先尝试复制消息（copyMessage 会保留内容但不带“转发自”）
     try:
@@ -220,6 +231,8 @@ async def send_to_bin_parsing_message(msg: Message) -> Message:
             raise e
 
 # 处理消息链接，通过TG消息链接获取文件直链
+
+
 @StreamBot.on_message(filters.private & filters.text & filters.regex(r"https?://t\.me/"))
 async def link_receive_handler(_, m: Message):
     link = m.text
@@ -242,11 +255,14 @@ async def link_receive_handler(_, m: Message):
     if not message.media:
         return await m.reply("这个消息不是文件。", quote=True)
     file_hash = get_hash(message, Var.HASH_LENGTH)
-    short_link, stream_link = build_links(file_hash, log_msg.id, get_name(message))
+    short_link, stream_link = build_links(
+        file_hash, log_msg.id, get_name(message))
     logger.info(f"直链： {short_link} for {m.from_user.first_name}")
     await reply_with_stream_links(m, stream_link, short_link, show_code_link="short")
 
 # 处理消息中的文件（文档、视频、音频等）
+
+
 @StreamBot.on_message(
     filters.private
     & (
@@ -271,6 +287,8 @@ async def media_receive_handler(_, m: Message):
     await reply_with_stream_links(m, stream_link, short_link, show_code_link="short")
 
 # 处理保存到Cloudreve的回调查询
+
+
 @StreamBot.on_callback_query(filters.regex("^save_cloudreve$"))
 async def save_to_cloudreve_handler(_, q: CallbackQuery):
     # 权限校验（复用与消息处理一致的策略）
@@ -337,11 +355,13 @@ async def save_to_cloudreve_handler(_, q: CallbackQuery):
         await q.answer(f"云盘提交失败：{e}", show_alert=True)
 
 # 处理/menu指令
+
+
 @StreamBot.on_message(filters.command("menu") & filters.private)
 async def menu_command_handler(_, m: Message):
     if Var.ALLOWED_USERS and not ((str(m.from_user.id) in Var.ALLOWED_USERS) or (m.from_user.username in Var.ALLOWED_USERS)):
         return await m.reply("你<b>没有权限</b>使用这个机器人。", quote=True)
-    
+
     # 发送菜单消息
     await m.reply(
         "请选择一个操作：",
@@ -349,7 +369,8 @@ async def menu_command_handler(_, m: Message):
         reply_markup=InlineKeyboardMarkup(
             [
                 [
-                    InlineKeyboardButton("远程下载", switch_inline_query_current_chat="/rdl "),
+                    InlineKeyboardButton(
+                        "远程下载", switch_inline_query_current_chat="/rdl "),
                     InlineKeyboardButton("查看文件", callback_data="menu_list"),
                     InlineKeyboardButton("删除文件", callback_data="menu_delete"),
                 ],
@@ -358,21 +379,34 @@ async def menu_command_handler(_, m: Message):
     )
 
 # 处理/rdl命令
+
+
 @StreamBot.on_message(filters.command("rdl") & filters.private)
 async def rdl_command_handler(_, m: Message):
     if Var.ALLOWED_USERS and not ((str(m.from_user.id) in Var.ALLOWED_USERS) or (m.from_user.username in Var.ALLOWED_USERS)):
         return await m.reply("你<b>没有权限</b>使用这个机器人。", quote=True)
-    
+
     # 优先从被回复消息中提取链接，其次从当前消息中提取
-    stream_link = extract_url_from_message(getattr(m, "reply_to_message", None)) or extract_url_from_message(m)
+    stream_link = extract_url_from_message(
+        getattr(m, "reply_to_message", None)) or extract_url_from_message(m)
     if not stream_link:
         return await m.reply("请在/rdl命令后提供一个有效的下载链接，或回复包含直链的消息使用 /rdl。", quote=True)
-    
+
     try:
         await remote_download(stream_link)
         await m.reply("已提交到云盘。", quote=True)
     except Exception as e:
         await m.reply(f"云盘提交失败：{e}", quote=True)
+
+
+@StreamBot.on_message(filters.command("relogin") & filters.private)
+async def relogin_command_handler(_, m: Message):
+    if Var.ALLOWED_USERS and not ((str(m.from_user.id) in Var.ALLOWED_USERS) or (m.from_user.username in Var.ALLOWED_USERS)):
+        return await m.reply("你<b>没有权限</b>使用这个机器人。", quote=True)
+
+    # 触发重新登录流程
+    await refresh_cloudreve_token()
+    await m.reply("已重新登录云盘。", quote=True)
 
 # @StreamBot.on_callback_query(filters.regex("^menu_list$"))
 # async def menu_list_handler(_, q: CallbackQuery):
@@ -380,7 +414,7 @@ async def rdl_command_handler(_, m: Message):
 #     user = q.from_user
 #     if Var.ALLOWED_USERS and not ((str(user.id) in Var.ALLOWED_USERS) or (user.username in Var.ALLOWED_USERS)):
 #         return await q.answer("你没有权限使用此功能。", show_alert=True)
-    
+
 #     # 获取文件列表
 #     try:
 #         result = await file_list()
@@ -388,7 +422,7 @@ async def rdl_command_handler(_, m: Message):
 #         files = data.get("files", [])
 #         if not files.length:
 #             return await q.answer("云盘上暂无文件。", show_alert=True)
-        
+
 #         # 转换为内联键盘格式
 #         keyboard = []
 #         for item in files:

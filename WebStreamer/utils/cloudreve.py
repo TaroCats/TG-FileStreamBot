@@ -1,7 +1,7 @@
 '''
 Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
 LastEditors: ablecats etsy@live.com
-LastEditTime: 2025-11-05 15:55:12
+LastEditTime: 2025-11-06 11:15:24
 Description: Cloudreve helper functions (async only)
 '''
 # Cloudreve helper functions - async only
@@ -48,6 +48,7 @@ def _ensure_api_success(result: Dict[str, Any], action: str) -> None:
     code = result.get("code")
     if code != 0:
         msg = result.get("msg") or f"{action} failed"
+        logging.error(f"Cloudreve {action} error: code={code}, msg={msg}")
         raise RuntimeError(f"Cloudreve {action} error: code={code}, msg={msg}")
     return code
 
@@ -146,7 +147,7 @@ async def refresh_cloudreve_token(timeout: int = 15) -> Dict[str, Any]:
 
     old_refresh = TOKEN_OBJ.get("refresh_token") if TOKEN_OBJ else None
     if not token_obj.get("refresh_token") and old_refresh:
-        token_obj["refresh_token"] = old_refresh
+        return await login_and_cache_cloudreve_token(timeout)
 
     TOKEN_OBJ = token_obj
     return token_obj
