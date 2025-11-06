@@ -1,19 +1,20 @@
 '''
 Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
 LastEditors: ablecats etsy@live.com
-LastEditTime: 2025-11-06 11:07:52
+LastEditTime: 2025-11-06 16:01:51
 Description: 
 '''
 # This file is a part of TG-FileStreamBot
 # Coding : Jyothis Jayanth [@EverythingSuckz]
 
 import re
+import asyncio
 from pyrogram import filters, errors
 from WebStreamer.vars import Var
 from urllib.parse import quote_plus
 from WebStreamer.bot import StreamBot, logger
 from WebStreamer.utils.file_properties import get_hash, get_name
-from WebStreamer.utils.cloudreve import file_list, remote_download, refresh_cloudreve_token
+from WebStreamer.utils.cloudreve import file_list, remote_download, remote_list, refresh_cloudreve_token, search_download_by_url
 from pyrogram.enums.parse_mode import ParseMode
 from pyrogram.types import Message, InlineKeyboardMarkup, InlineKeyboardButton, CallbackQuery
 from pyrogram.enums import MessageEntityType
@@ -349,7 +350,48 @@ async def save_to_cloudreve_handler(_, q: CallbackQuery):
             STREAM_LINK_CACHE.pop(q.message.id, None)
         except Exception:
             pass
-        await q.answer("已提交到云盘。", show_alert=True)
+        # 发送一条新消息，开始轮询下载进度
+        msg = await q.message.reply("文件已提交至云盘下载...", quote=True)
+
+        # 每5秒查询一次，直到在“downloading”列表中找不到该任务
+        while True:
+            await asyncio.sleep(5)
+            try:
+                category = 'downloading'
+                remote_files = await remote_list(category=category)
+                remote_files_data = remote_files.get('data', {})
+                matched = await search_download_by_url(result=remote_files_data, url=stream_link, category=category)
+            except Exception:
+                msg.message.edit("查询云盘下载状态失败，请查询日志。", quote=True)
+                break
+
+            if matched:
+                name = matched.get('name', '未知')
+                status = matched.get('status', 'downloading')
+                progress_val = matched.get('progress', 0)
+                try:
+                    pct = float(progress_val) * 100
+                except Exception:
+                    pct = 0.0
+                if status == 'completed':
+                    try:
+                        await msg.message.edit(
+                            f"文件下载完成：\n文件名:{name}",
+                            quote=True,
+                        )
+                    except Exception:
+                        pass
+                    break
+                if status == 'downloading':
+                    try:
+                        await msg.message.edit(
+                            f"文件下载中：\n文件名:{name}\n进度:{pct:.2f}%",
+                            quote=True,
+                        )
+                    except Exception:
+                        pass
+                    continue
+
     except Exception as e:
         # 将错误返回给用户
         await q.answer(f"云盘提交失败：{e}", show_alert=True)
@@ -407,6 +449,7 @@ async def relogin_command_handler(_, m: Message):
     # 触发重新登录流程
     await refresh_cloudreve_token()
     await m.reply("已重新登录云盘。", quote=True)
+
 
 # @StreamBot.on_callback_query(filters.regex("^menu_list$"))
 # async def menu_list_handler(_, q: CallbackQuery):

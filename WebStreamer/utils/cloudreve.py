@@ -1,11 +1,12 @@
 '''
 Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
 LastEditors: ablecats etsy@live.com
-LastEditTime: 2025-11-06 11:15:24
+LastEditTime: 2025-11-06 16:00:07
 Description: Cloudreve helper functions (async only)
 '''
 # Cloudreve helper functions - async only
 
+import array
 import json
 import time
 import aiohttp
@@ -276,7 +277,7 @@ async def share_file(uri: str = "", timeout: int = 15, skew_seconds: int = 60) -
 # 获取远程下载任务列表
 
 
-async def remote_list(page_size: int = 20, category: str = "general", timeout: int = 15, skew_seconds: int = 60) -> Dict[str, Any]:
+async def remote_list(category: str = "general", page_size: int = 20, timeout: int = 15, skew_seconds: int = 60) -> Dict[str, Any]:
     """
     List remote download tasks.
     URL: /api/v4/workflow
@@ -305,6 +306,63 @@ async def remote_list(page_size: int = 20, category: str = "general", timeout: i
         f"Cloudreve remote list: category={category}, page_size={page_size}")
     _ensure_api_success(result, "remote_list")
     return result
+
+# 搜索下载任务（纯本地搜索，不触发额外网络请求）
+
+
+async def search_download_by_url(result: Dict[str, Any] = {}, url: str = "", category: str = 'downloading'):
+    """
+    在给定的 Cloudreve 任务列表结果中，按源 URL 搜索对应任务。
+    - 兼容两种数据形态：传入完整响应（含 `data.tasks`）或仅传入 `data`（含 `tasks`）。
+    - 不进行额外的网络请求；若未找到，返回 None。
+    - 保持原返回结构：`{"name", "status", "progress"}`。
+    """
+    try:
+        if not result or not url:
+            logging.warning(
+                "search_download_by_url: empty input (result or url)")
+            return None
+        # 兼容完整响应或仅 data 字段
+        if 'tasks' in result:
+            tasks = result.get('tasks') or []
+        else:
+            tasks = (result.get('data', {}).get('tasks') or [])
+
+        logging.info(f"Cloudreve {category} list: task count={len(tasks)}")
+        if len(tasks) == 0:
+            return None
+        for item in tasks:
+            try:
+                src_str = (
+                    item.get('summary', {})
+                    .get('props', {})
+                    .get('src_str')
+                )
+                if src_str == url:
+                    download_props = (
+                        item.get('summary', {})
+                        .get('props', {})
+                        .get('download', {})
+                    )
+                    files = download_props.get('files', []) or []
+                    progress = None
+                    if isinstance(files, list) and files:
+                        progress = files[0].get('progress')
+                    elif isinstance(files, dict):
+                        progress = files.get('progress')
+
+                    return {
+                        'name': download_props.get('name'),
+                        'status': item.get('status'),
+                        'progress': progress,
+                    }
+            except Exception:
+                continue
+        # 未找到即返回 None，由调用方决定是否在其他 category 继续搜索
+        return None
+    except Exception as e:
+        logging.exception("search_download_by_url failed: %s", e)
+        return None
 
 # 创建远程下载任务
 
