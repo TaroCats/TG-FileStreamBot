@@ -345,17 +345,16 @@ async def search_download_by_url(result: Dict[str, Any] = {}, url: str = "", cat
                 
                 if src_str == url:
                     logging.info(f"Cloudreve {category} task: src_str={src_str} matches")
-                    files = download_props.get('files', []) or []
-
-                    progress = None
                     download_props = (
                         item.get('summary', {})
                         .get('props', {})
                         .get('download', {})
                     )
-
-                    if isinstance(files, list) and files:
-                        progress = files[0].get('progress')
+                    files = download_props.get('files') or []
+                    progress = None
+                    if isinstance(files, list):
+                        if files:
+                            progress = files[0].get('progress')
                     elif isinstance(files, dict):
                         progress = files.get('progress')
                     return {

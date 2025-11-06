@@ -152,7 +152,7 @@ async def main(cfg: argparse.Namespace) -> int:
         #              cfg.category, len(tasks) if tasks else 0)
         # If search_url is provided, try to locate the specific task
 
-        matched = await search_download_by_url(result=result, url='https://tg.taro.cat/63/video-2025-11-06_15-57-41.mp4?hash=c12fa1', category='downloading')
+        matched = await search_download_by_url(result=result, url='https://tg.taro.cat/64/video-2025-11-06_08-45-48.mp4?hash=4d8125', category='downloading')
         print(json.dumps(matched, ensure_ascii=False, indent=2))
     except Exception as e:
         logging.exception("remote_list failed: %s", e)
