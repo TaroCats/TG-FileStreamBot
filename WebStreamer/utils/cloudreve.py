@@ -10,7 +10,6 @@ import array
 import json
 from math import log
 import time
-from xxlimited import Null
 import aiohttp
 import logging
 from typing import Any as _AnyType
@@ -312,7 +311,7 @@ async def remote_list(category: str = "general", page_size: int = 20, timeout: i
 # 搜索下载任务（纯本地搜索，不触发额外网络请求）
 
 
-async def search_download_by_url(result: Dict[str, Any] = {}, url: str = "") -> Dict[str, Any] | Null:
+async def search_download_by_url(result: Dict[str, Any] = {}, url: str = "") -> Optional[Dict[str, Any]]:
     """
     在给定的 Cloudreve 任务列表结果中，按源 URL 搜索对应任务。
     - 兼容两种数据形态：传入完整响应（含 `data.tasks`）或仅传入 `data`（含 `tasks`）。
