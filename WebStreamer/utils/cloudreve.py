@@ -1,7 +1,7 @@
 '''
 Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
 LastEditors: ablecats etsy@live.com
-LastEditTime: 2025-11-07 08:54:51
+LastEditTime: 2025-11-07 09:05:10
 Description: Cloudreve helper functions (async only)
 '''
 # Cloudreve helper functions - async only
@@ -347,6 +347,8 @@ async def search_download_by_url(result: Dict[str, Any] = {}, url: str = "") -> 
                         .get('props', {})
                         .get('download', {})
                     )
+                    logging.info(
+                        f"Cloudreve task: download_props={download_props}")
                     files = download_props.get('files') or []
                     progress = None
                     if isinstance(files, list):
@@ -354,12 +356,16 @@ async def search_download_by_url(result: Dict[str, Any] = {}, url: str = "") -> 
                             progress = files[0].get('progress')
                     elif isinstance(files, dict):
                         progress = files.get('progress')
+                    logging.info(f"Cloudreve task: files={files}")
+                    logging.info(f"Cloudreve task: progress={progress}")
                     return {
                         'name': download_props.get('name'),
                         'status': item.get('status'),
                         'progress': progress,
                     }
-            except Exception:
+            except Exception as e:
+                logging.exception(
+                    f"Cloudreve task: src_str={src_str} search failed: {e}")
                 continue
         # 未找到即返回 None，由调用方决定是否在其他 category 继续搜索
         return None
