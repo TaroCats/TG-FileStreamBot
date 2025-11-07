@@ -1,7 +1,7 @@
 '''
 Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
 LastEditors: ablecats etsy@live.com
-LastEditTime: 2025-11-07 09:12:41
+LastEditTime: 2025-11-07 09:20:38
 Description: 
 '''
 # This file is a part of TG-FileStreamBot
@@ -295,7 +295,7 @@ async def reply_download_info(q: CallbackQuery, stream_link):
     msg = await q.message.reply("已提交下载任务，等待下载中...", quote=True)
     await asyncio.sleep(5)
     try:
-        await msg.message.edit("正在查询下载任务进度...", quote=True)
+        await msg.edit_text("正在查询下载任务进度...")
     except Exception:
         pass
     while True:
@@ -308,7 +308,7 @@ async def reply_download_info(q: CallbackQuery, stream_link):
             if task:
                 if task.get('status') == "completed":
                     try:
-                        await msg.message.edit(f"下载任务已完成！\n文件名称:{task.get('name', 'N/A')}", quote=True)
+                        await msg.edit_text(f"下载任务已完成！\n文件名称:{task.get('name', 'N/A')}")
                     except Exception:
                         pass
                     break
@@ -319,9 +319,8 @@ async def reply_download_info(q: CallbackQuery, stream_link):
                     except Exception:
                         pct = 0.0
                     try:
-                        await msg.message.edit(
+                        await msg.edit_text(
                             f"下载中...\n文件名称:{task.get('name', 'N/A')}\n进度:{pct:.2f}%",
-                            quote=True,
                         )
                     except Exception:
                         pass
@@ -330,20 +329,21 @@ async def reply_download_info(q: CallbackQuery, stream_link):
             logger.error(f"查询下载任务进度时出错: {e}")
             break
         # 如果在downloading中未找到，尝试downloaded分类
-        try:
-            category = 'downloaded'
-            remote_result = await remote_list(category=category)
-            task = await search_download_by_url(result=remote_result, url=stream_link)
-            logger.info(f"Cloudreve task: {task} category={category}")
-            if task:
-                try:
-                    await msg.message.edit(f"下载任务已完成！\n文件名称:{task.get('name', 'N/A')}", quote=True)
-                    break
-                except Exception:
-                    pass
-        except Exception as e:
-            logger.error(f"查询已完成下载任务时出错: {e}")
-            break
+        if not task:
+            try:
+                category = 'downloaded'
+                remote_result = await remote_list(category=category)
+                task = await search_download_by_url(result=remote_result, url=stream_link)
+                logger.info(f"Cloudreve task: {task} category={category}")
+                if task:
+                    try:
+                        await msg.edit_text(f"下载任务已完成！\n文件名称:{task.get('name', 'N/A')}")
+                        break
+                    except Exception:
+                        pass
+            except Exception as e:
+                logger.error(f"查询已完成下载任务时出错: {e}")
+                break
 
         await asyncio.sleep(5)
 
