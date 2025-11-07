@@ -1,7 +1,7 @@
 '''
 Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
 LastEditors: ablecats etsy@live.com
-LastEditTime: 2025-11-06 16:32:34
+LastEditTime: 2025-11-07 08:50:00
 Description: 
 '''
 # This file is a part of TG-FileStreamBot
@@ -291,66 +291,59 @@ async def media_receive_handler(_, m: Message):
 
 
 async def reply_download_info(q: CallbackQuery, stream_link):
-    if not stream_link:
-        return
-    msg = await q.message.reply("文件已提交至云盘下载...", quote=True)
-
+    # 实现从remote_list中和search_download_by_url进行查找stream_link的方法，直到任务状态为完成
+    msg = await q.message.reply("已提交下载任务，等待下载中...", quote=True)
+    await asyncio.sleep(5)
+    try:
+        await msg.message.edit("正在查询下载任务进度...", quote=True)
+    except Exception:
+        pass
     while True:
-        await asyncio.sleep(10)
         try:
+            # 从remote_list中查找任务
             category = 'downloading'
-            remote_files = await remote_list(category=category)
-            remote_files_data = remote_files.get('data', {})
-            matched = await search_download_by_url(result=remote_files_data, url=stream_link, category=category)
-        except Exception:
-            try:
-                await msg.message.edit("查询云盘下载状态失败，请查询日志。", quote=True)
-            except Exception:
-                pass
+            remote_result = await remote_list(category=category)
+            task = await search_download_by_url(result=remote_result, url=stream_link, category=category)
+            if task:
+                if task.get('status') == "completed":
+                    try:
+                        await msg.message.edit(f"下载任务已完成！\n文件名称:{task.get('name', 'N/A')}", quote=True)
+                    except Exception:
+                        pass
+                    break
+                if task.get('status') == "downloading":
+                    progress_val = task.get('progress', 0) or 0
+                    try:
+                        pct = float(progress_val) * 100
+                    except Exception:
+                        pct = 0.0
+                    try:
+                        await msg.message.edit(
+                            f"下载中...\n文件名称:{task.get('name', 'N/A')}\n进度:{pct:.2f}%",
+                            quote=True,
+                        )
+                    except Exception:
+                        pass
+                    continue
+        except Exception as e:
+            logger.error(f"查询下载任务进度时出错: {e}")
             break
         # 如果在downloading中未找到，尝试downloaded
-        if not matched:
-            try:
-                category = 'downloaded'
-                remote_files = await remote_list(category=category)
-                remote_files_data = remote_files.get('data', {})
-                matched = await search_download_by_url(result=remote_files_data, url=stream_link, category=category)
-            except Exception:
-                pass
-        if not matched:
-            try:
-                await msg.message.edit("查询云盘下载状态失败，请查询日志。", quote=True)
-            except Exception:
-                pass
+        try:
+            category = 'downloaded'
+            remote_result = await remote_list(category=category)
+            task = await search_download_by_url(result=remote_result, url=stream_link, category=category)
+            if task:
+                try:
+                    await msg.message.edit(f"下载任务已完成！\n文件名称:{task.get('name', 'N/A')}", quote=True)
+                    break
+                except Exception:
+                    pass
+        except Exception as e:
+            logger.error(f"查询已完成下载任务时出错: {e}")
             break
 
-        if matched:
-            name = matched.get('name', '未知')
-            status = matched.get('status', 'downloading')
-            progress_val = matched.get('progress', 0)
-            try:
-                pct = float(progress_val) * 100
-            except Exception:
-                pct = 0.0
-            if status == 'completed':
-                try:
-                    await msg.message.edit(
-                        f"文件下载完成：\n文件名:{name}",
-                        quote=True,
-                    )
-                except Exception:
-                    pass
-                break
-            if status == 'downloading':
-                try:
-                    await msg.message.edit(
-                        f"文件下载中：\n文件名:{name}\n进度:{pct:.2f}%",
-                        quote=True,
-                    )
-                except Exception:
-                    pass
-                continue
-
+        await asyncio.sleep(5)
 
 # 处理保存到Cloudreve的回调查询
 
