@@ -1,7 +1,7 @@
 '''
 Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
 LastEditors: ablecats etsy@live.com
-LastEditTime: 2025-11-07 08:50:00
+LastEditTime: 2025-11-07 08:54:02
 Description: 
 '''
 # This file is a part of TG-FileStreamBot
@@ -300,10 +300,10 @@ async def reply_download_info(q: CallbackQuery, stream_link):
         pass
     while True:
         try:
-            # 从remote_list中查找任务
+            # 从remote_list中查找任务状态为downloading的任务
             category = 'downloading'
             remote_result = await remote_list(category=category)
-            task = await search_download_by_url(result=remote_result, url=stream_link, category=category)
+            task = await search_download_by_url(result=remote_result, url=stream_link)
             if task:
                 if task.get('status') == "completed":
                     try:
@@ -332,7 +332,7 @@ async def reply_download_info(q: CallbackQuery, stream_link):
         try:
             category = 'downloaded'
             remote_result = await remote_list(category=category)
-            task = await search_download_by_url(result=remote_result, url=stream_link, category=category)
+            task = await search_download_by_url(result=remote_result, url=stream_link)
             if task:
                 try:
                     await msg.message.edit(f"下载任务已完成！\n文件名称:{task.get('name', 'N/A')}", quote=True)

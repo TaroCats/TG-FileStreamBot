@@ -1,7 +1,7 @@
 '''
 Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
 LastEditors: ablecats etsy@live.com
-LastEditTime: 2025-11-07 08:49:27
+LastEditTime: 2025-11-07 08:54:51
 Description: Cloudreve helper functions (async only)
 '''
 # Cloudreve helper functions - async only
@@ -340,10 +340,6 @@ async def search_download_by_url(result: Dict[str, Any] = {}, url: str = "") -> 
                     .get('props', {})
                     .get('src_str')
                 )
-                status = item.get('status')
-                if status == 'canceled':
-                    continue
-
                 if src_str == url:
                     logging.info(
                         f"Cloudreve {category} task: src_str={src_str} matches")
