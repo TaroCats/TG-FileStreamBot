@@ -1,7 +1,7 @@
 '''
 Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
 LastEditors: ablecats etsy@live.com
-LastEditTime: 2025-11-07 08:54:02
+LastEditTime: 2025-11-07 09:12:41
 Description: 
 '''
 # This file is a part of TG-FileStreamBot
@@ -304,6 +304,7 @@ async def reply_download_info(q: CallbackQuery, stream_link):
             category = 'downloading'
             remote_result = await remote_list(category=category)
             task = await search_download_by_url(result=remote_result, url=stream_link)
+            logger.info(f"Cloudreve task: {task} category={category}")
             if task:
                 if task.get('status') == "completed":
                     try:
@@ -328,11 +329,12 @@ async def reply_download_info(q: CallbackQuery, stream_link):
         except Exception as e:
             logger.error(f"查询下载任务进度时出错: {e}")
             break
-        # 如果在downloading中未找到，尝试downloaded
+        # 如果在downloading中未找到，尝试downloaded分类
         try:
             category = 'downloaded'
             remote_result = await remote_list(category=category)
             task = await search_download_by_url(result=remote_result, url=stream_link)
+            logger.info(f"Cloudreve task: {task} category={category}")
             if task:
                 try:
                     await msg.message.edit(f"下载任务已完成！\n文件名称:{task.get('name', 'N/A')}", quote=True)

@@ -1,7 +1,7 @@
 '''
 Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
 LastEditors: ablecats etsy@live.com
-LastEditTime: 2025-11-07 09:05:10
+LastEditTime: 2025-11-07 09:11:29
 Description: Cloudreve helper functions (async only)
 '''
 # Cloudreve helper functions - async only
@@ -328,8 +328,6 @@ async def search_download_by_url(result: Dict[str, Any] = {}, url: str = "") -> 
             tasks = result.get('tasks') or []
         else:
             tasks = (result.get('data', {}).get('tasks') or [])
-
-        logging.info(f"Cloudreve list: task count={len(tasks)}")
         if len(tasks) == 0:
             return None
         for item in tasks:
@@ -340,24 +338,24 @@ async def search_download_by_url(result: Dict[str, Any] = {}, url: str = "") -> 
                     .get('src_str')
                 )
                 if src_str == url:
-                    logging.info(
-                        f"Cloudreve task: src_str={src_str} matches")
+                    logging.info(f"Cloudreve task: src_str={src_str} matches")
                     download_props = (
                         item.get('summary', {})
                         .get('props', {})
-                        .get('download', {})
+                        .get('download') or {}
                     )
-                    logging.info(
-                        f"Cloudreve task: download_props={download_props}")
+                    if not isinstance(download_props, dict):
+                        download_props = {}
+
                     files = download_props.get('files') or []
                     progress = None
+
                     if isinstance(files, list):
                         if files:
-                            progress = files[0].get('progress')
+                            progress = files[0].get('progress', 0)
                     elif isinstance(files, dict):
-                        progress = files.get('progress')
-                    logging.info(f"Cloudreve task: files={files}")
-                    logging.info(f"Cloudreve task: progress={progress}")
+                        progress = files.get('progress', 0)
+
                     return {
                         'name': download_props.get('name'),
                         'status': item.get('status'),
