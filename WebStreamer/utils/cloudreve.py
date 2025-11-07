@@ -330,7 +330,7 @@ async def search_download_by_url(result: Dict[str, Any] = {}, url: str = "") -> 
         else:
             tasks = (result.get('data', {}).get('tasks') or [])
 
-        logging.info(f"Cloudreve {category} list: task count={len(tasks)}")
+        logging.info(f"Cloudreve list: task count={len(tasks)}")
         if len(tasks) == 0:
             return None
         for item in tasks:
@@ -342,7 +342,7 @@ async def search_download_by_url(result: Dict[str, Any] = {}, url: str = "") -> 
                 )
                 if src_str == url:
                     logging.info(
-                        f"Cloudreve {category} task: src_str={src_str} matches")
+                        f"Cloudreve task: src_str={src_str} matches")
                     download_props = (
                         item.get('summary', {})
                         .get('props', {})
