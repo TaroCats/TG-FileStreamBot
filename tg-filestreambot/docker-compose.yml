@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  tg-filestreambot:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: tg-filestreambot
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    environment:
+      - RUST_LOG=info
+    volumes:
+      - ./config.toml:/app/config.toml:ro
+      - ./logs:/app/logs
+    networks:
+      - tg-filestreambot-network
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:8080/api/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Redis 服务（可选，用于分布式状态管理）
+  redis:
+    image: redis:7-alpine
+    container_name: tg-filestreambot-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - tg-filestreambot-network
+    command: redis-server --appendonly yes
+
+  # Nginx 反向代理（可选）
+  nginx:
+    image: nginx:alpine
+    container_name: tg-filestreambot-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - tg-filestreambot
+    networks:
+      - tg-filestreambot-network
+
+networks:
+  tg-filestreambot-network:
+    driver: bridge
+
+volumes:
+  redis-data:
+    driver: local
