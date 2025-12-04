@@ -1,7 +1,7 @@
 '''
 Author: error: error: git config user.name & please set dead value or install git && error: git config user.email & please set dead value or install git & please set dead value or install git
 LastEditors: ablecats etsy@live.com
-LastEditTime: 2025-11-07 09:24:48
+LastEditTime: 2025-12-04 17:45:57
 Description: Cloudreve helper functions (async only)
 '''
 # Cloudreve helper functions - async only
@@ -141,14 +141,26 @@ async def refresh_cloudreve_token(timeout: int = 15) -> Dict[str, Any]:
         None,
         timeout,
     )
-    refreshCode = _ensure_api_success(result, "refresh")
-    if refreshCode != 0:
+    # 若刷新接口返回非0 code（失效/作废），立刻作废缓存并回退登录
+    try:
+        _ensure_api_success(result, "refresh")
+    except RuntimeError as e:
+        logging.warning(
+            "Cloudreve refresh token invalid; clearing cache and re-login: %s",
+            e,
+        )
+        TOKEN_OBJ = None
         return await login_and_cache_cloudreve_token(timeout)
 
     token_obj = _extract_token_obj(result)
 
     old_refresh = TOKEN_OBJ.get("refresh_token") if TOKEN_OBJ else None
+    # 如果返回缺少 refresh_token（被作废/黑名单），直接清空缓存并回退登录
     if not token_obj.get("refresh_token") and old_refresh:
+        logging.warning(
+            "Cloudreve refresh response missing refresh_token; clearing cache and re-login",
+        )
+        TOKEN_OBJ = None
         return await login_and_cache_cloudreve_token(timeout)
 
     TOKEN_OBJ = token_obj
