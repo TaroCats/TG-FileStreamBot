@@ -1,3 +1,9 @@
+'''
+Author: ablecats etsy@live.com
+LastEditors: ablecats etsy@live.com
+LastEditTime: 2025-12-08 09:10:38
+Description: 
+'''
 # This file is a part of TG-FileStreamBot
 # Coding : Jyothis Jayanth [@EverythingSuckz]
 
@@ -34,20 +40,3 @@ class Var(object):
     DEBUG = str(environ.get("DEBUG", "0").lower()) in ("1", "true", "t", "yes", "y")
     USE_SESSION_FILE = str(environ.get("USE_SESSION_FILE", "0").lower()) in ("1", "true", "t", "yes", "y")
     ALLOWED_USERS = [x.strip("@ ") for x in str(environ.get("ALLOWED_USERS", "") or "").split(",") if x.strip("@ ")]
-
-    USE_CLOUDEREVE = str(environ.get("USE_CLOUDEREVE", "0").lower()) in ("1", "true", "t", "yes", "y")
-    CLOUDEREVE_API_URL = str(environ.get("CLOUDEREVE_API_URL", ""))
-    if USE_CLOUDEREVE and not CLOUDEREVE_API_URL:
-        sys.exit("Cloudreve API URL is not set")
-    CLOUDEREVE_USERNAME = str(environ.get("CLOUDEREVE_USERNAME", ""))
-    if USE_CLOUDEREVE and not CLOUDEREVE_USERNAME:
-        sys.exit("Cloudreve username is not set")
-    CLOUDEREVE_PASSWORD = str(environ.get("CLOUDEREVE_PASSWORD", ""))
-    if USE_CLOUDEREVE and not CLOUDEREVE_PASSWORD:
-        sys.exit("Cloudreve password is not set")
-
-    CLOUDEREVE_TOKEN_OBJ = None
-    CLOUDEREVE_ACCESS_TOKEN = None
-    CLOUDEREVE_DOWNLOAD_PATH = str(environ.get("CLOUDEREVE_DOWNLOAD_PATH", ""))
-    if USE_CLOUDEREVE and not CLOUDEREVE_DOWNLOAD_PATH:
-        sys.exit("Cloudreve download path is not set")

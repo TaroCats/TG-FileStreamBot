@@ -1,7 +1,7 @@
 '''
 Author: ablecats etsy@live.com
 LastEditors: ablecats etsy@live.com
-LastEditTime: 2025-10-22 17:06:10
+LastEditTime: 2025-12-08 09:14:59
 Description: 
 '''
 # This file is a part of TG-FileStreamBot
@@ -17,8 +17,6 @@ from WebStreamer import StreamBot
 from WebStreamer.server import web_server
 from WebStreamer.bot.clients import initialize_clients
 from WebStreamer.utils.keepalive import ping_server
-from WebStreamer.utils.cloudreve import login_and_cache_cloudreve_token
-
 
 logging.basicConfig(
     level=logging.DEBUG if Var.DEBUG else logging.INFO,
@@ -34,8 +32,6 @@ logging.getLogger("aiohttp.web").setLevel(logging.DEBUG if Var.DEBUG else loggin
 server = web.AppRunner(web_server())
 
 loop = asyncio.get_event_loop()
-
-
 
 async def start_services():
     logging.info("Initializing Telegram Bot")
@@ -59,11 +55,7 @@ async def start_services():
         logging.info("DC ID =>> {}".format(str(bot_info.dc_id)))
     logging.info("URL =>> {}".format(Var.URL))
 
-    await login_and_cache_cloudreve_token()
-    logging.info("Cloudreve token cached")
-
     await idle()
-    
         
 async def cleanup():
     await server.cleanup()

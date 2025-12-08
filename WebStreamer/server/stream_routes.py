@@ -5,8 +5,8 @@ import re
 import time
 import math
 import logging
-import secrets
 import mimetypes
+from urllib.parse import quote_plus
 from aiohttp import web
 from aiohttp.http_exceptions import BadStatusLine
 from WebStreamer.bot import multi_clients, work_loads
@@ -39,6 +39,159 @@ async def root_route_handler(_):
         }
     )
 
+async def _resolve_by_link(link: str) -> web.Response:
+    """Core resolver: given a t.me message link, return direct links JSON."""
+    try:
+        pattern = r"https?://t\.me/(?:c/)?([^/]+)/(\d+)"
+        m = re.match(pattern, link.strip())
+        if not m:
+            return web.json_response({"error": "unsupported t.me link format"}, status=422)
+
+        channel_or_id, message_id_str = m.groups()
+        message_id = int(message_id_str)
+
+        try:
+            message = await StreamBot.get_messages(channel_or_id, message_id)
+        except Exception as e:
+            logger.exception("resolve: get_messages failed: %s", e)
+            return web.json_response({"error": f"cannot fetch telegram message: {e}"}, status=502)
+
+        # Copy/republish to BIN_CHANNEL to ensure stream permission
+        try:
+            log_msg = await StreamBot.copy_message(
+                chat_id=Var.BIN_CHANNEL,
+                from_chat_id=message.chat.id,
+                message_id=message.id,
+            )
+        except Exception:
+            # Fallback: send by specific media type
+            try:
+                if getattr(message, "document", None):
+                    log_msg = await StreamBot.send_document(
+                        Var.BIN_CHANNEL,
+                        message.document.file_id,
+                        caption=(message.caption or ""),
+                        caption_entities=message.caption_entities,
+                        reply_markup=message.reply_markup,
+                    )
+                elif getattr(message, "video", None):
+                    log_msg = await StreamBot.send_video(
+                        Var.BIN_CHANNEL,
+                        message.video.file_id,
+                        caption=(message.caption or ""),
+                        caption_entities=message.caption_entities,
+                        reply_markup=message.reply_markup,
+                    )
+                elif getattr(message, "audio", None):
+                    log_msg = await StreamBot.send_audio(
+                        Var.BIN_CHANNEL,
+                        message.audio.file_id,
+                        caption=(message.caption or ""),
+                        caption_entities=message.caption_entities,
+                        reply_markup=message.reply_markup,
+                    )
+                elif getattr(message, "animation", None):
+                    log_msg = await StreamBot.send_animation(
+                        Var.BIN_CHANNEL,
+                        message.animation.file_id,
+                        caption=(message.caption or ""),
+                        caption_entities=message.caption_entities,
+                        reply_markup=message.reply_markup,
+                    )
+                elif getattr(message, "voice", None):
+                    log_msg = await StreamBot.send_voice(
+                        Var.BIN_CHANNEL,
+                        message.voice.file_id,
+                        caption=(message.caption or ""),
+                        caption_entities=message.caption_entities,
+                        reply_markup=message.reply_markup,
+                    )
+                elif getattr(message, "photo", None):
+                    # For photo, send the biggest size
+                    photo = message.photo
+                    file_id = photo.file_id if hasattr(photo, "file_id") else photo[-1].file_id
+                    log_msg = await StreamBot.send_photo(
+                        Var.BIN_CHANNEL,
+                        file_id,
+                        caption=(message.caption or ""),
+                        caption_entities=message.caption_entities,
+                        reply_markup=message.reply_markup,
+                    )
+                elif getattr(message, "video_note", None):
+                    log_msg = await StreamBot.send_video_note(Var.BIN_CHANNEL, message.video_note.file_id)
+                elif getattr(message, "sticker", None):
+                    log_msg = await StreamBot.send_sticker(Var.BIN_CHANNEL, message.sticker.file_id)
+                else:
+                    # Fallback to plain text
+                    log_msg = await StreamBot.send_message(
+                        Var.BIN_CHANNEL,
+                        (message.text or message.caption or ""),
+                        entities=message.entities,
+                        reply_markup=message.reply_markup,
+                    )
+            except Exception as e:
+                logger.exception("resolve: send to BIN_CHANNEL failed: %s", e)
+                return web.json_response({"error": f"cannot duplicate message: {e}"}, status=502)
+
+        # Build links using BIN_CHANNEL message id and original media info
+        file_hash = get_hash(message, Var.HASH_LENGTH)
+        display_name = get_name(message)
+        short_link = f"{Var.URL}{file_hash}{log_msg.id}"
+        stream_link = f"{Var.URL}{log_msg.id}/{quote_plus(display_name)}?hash={file_hash}"
+
+        return web.json_response({
+            "ok": True,
+            "short_link": short_link,
+            "stream_link": stream_link,
+            "message_id": log_msg.id,
+            "hash": file_hash,
+            "name": display_name,
+        })
+    except Exception as e:
+        logger.exception("resolve: unexpected error: %s", e)
+        return web.json_response({"error": str(e)}, status=500)
+
+@routes.get("/api/resolve", allow_head=True)
+async def resolve_tme_link_handler(request: web.Request):
+    """Resolve a Telegram t.me message link into a streamable direct link.
+
+    Query params:
+      - url: https://t.me/<channel|group>/<message_id> or https://t.me/c/<id>/<message_id>
+
+    Returns JSON with short_link and stream_link.
+    """
+    link = request.rel_url.query.get("url")
+    if not link:
+        return web.json_response({"error": "missing 'url' query param"}, status=400)
+    return await _resolve_by_link(link)
+
+@routes.post("/api/resolve")
+async def resolve_tme_link_post_handler(request: web.Request):
+    """POST variant: accepts JSON {url} or form field 'url', also raw text."""
+    link = None
+    try:
+        ctype = request.content_type or ""
+        if ctype.startswith("application/json"):
+            data = await request.json()
+            if isinstance(data, dict):
+                link = data.get("url") or data.get("link")
+        else:
+            # form-encoded or multipart
+            form = await request.post()
+            link = form.get("url") or form.get("link")
+        if not link:
+            # fallback: treat raw text body as the URL
+            text = (await request.text()).strip()
+            if text.startswith("http"):
+                link = text
+    except Exception as e:
+        logger.exception("resolve: parsing POST body failed: %s", e)
+        return web.json_response({"error": f"invalid request body: {e}"}, status=400)
+
+    if not link:
+        return web.json_response({"error": "missing 'url' in body"}, status=400)
+
+    return await _resolve_by_link(link)
 
 @routes.get(r"/{path:\S+}", allow_head=True)
 async def stream_handler(request: web.Request):
