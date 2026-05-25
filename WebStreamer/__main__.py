@@ -1,7 +1,7 @@
 '''
 Author: ablecats etsy@live.com
 LastEditors: ablecats etsy@live.com
-LastEditTime: 2025-12-08 09:14:59
+LastEditTime: 2026-05-25 16:49:00
 Description: 
 '''
 # This file is a part of TG-FileStreamBot
@@ -10,30 +10,33 @@ Description:
 import sys
 import asyncio
 import logging
-from .vars import Var
+import logging.handlers
+from .config import Config
 from aiohttp import web
 from pyrogram import idle
 from WebStreamer import StreamBot
 from WebStreamer.server import web_server
-from WebStreamer.bot.clients import initialize_clients
+from WebStreamer.bot.client_manager import ClientManager
+from WebStreamer.bot import sessions_dir
 from WebStreamer.utils.keepalive import ping_server
 
 logging.basicConfig(
-    level=logging.DEBUG if Var.DEBUG else logging.INFO,
+    level=logging.DEBUG if Config.DEBUG else logging.INFO,
     datefmt="%d/%m/%Y %H:%M:%S",
     format="[%(asctime)s][%(name)s][%(levelname)s] ==> %(message)s",
     handlers=[logging.StreamHandler(stream=sys.stdout),
-              logging.FileHandler("streambot.log", mode="a", encoding="utf-8")],)
+              logging.handlers.RotatingFileHandler("streambot.log", maxBytes=1024 * 1024, backupCount=0, encoding="utf-8")],)
 
-logging.getLogger("aiohttp").setLevel(logging.DEBUG if Var.DEBUG else logging.ERROR)
-logging.getLogger("pyrogram").setLevel(logging.INFO if Var.DEBUG else logging.ERROR)
-logging.getLogger("aiohttp.web").setLevel(logging.DEBUG if Var.DEBUG else logging.ERROR)
+logging.getLogger("aiohttp").setLevel(logging.DEBUG if Config.DEBUG else logging.ERROR)
+logging.getLogger("pyrogram").setLevel(logging.INFO if Config.DEBUG else logging.ERROR)
+logging.getLogger("aiohttp.web").setLevel(logging.DEBUG if Config.DEBUG else logging.ERROR)
 
-server = web.AppRunner(web_server())
+server = None
 
 loop = asyncio.get_event_loop()
 
 async def start_services():
+    global server
     logging.info("Initializing Telegram Bot")
     await StreamBot.start()
     bot_info = await StreamBot.get_me()
@@ -42,24 +45,38 @@ async def start_services():
     StreamBot.username = bot_info.username
     logging.info("Initialized Telegram Bot")
 
-    await initialize_clients()
-    if Var.KEEP_ALIVE:
+    client_manager = ClientManager(StreamBot, sessions_dir)
+    await client_manager.initialize_clients()
+    
+    if Config.KEEP_ALIVE:
         asyncio.create_task(ping_server())
 
+    server = web.AppRunner(web_server(client_manager))
     await server.setup()
-    await web.TCPSite(server, Var.BIND_ADDRESS, Var.PORT).start()
+    await web.TCPSite(server, Config.BIND_ADDRESS, Config.PORT).start()
     logging.info("Service Started")
     logging.info("bot =>> {}".format(bot_info.first_name))
 
     if bot_info.dc_id:
         logging.info("DC ID =>> {}".format(str(bot_info.dc_id)))
-    logging.info("URL =>> {}".format(Var.URL))
-
+    logging.info("URL =>> {}".format(Config.URL))
+    
+    logging.info(f"文件流解析服务成功启动, 请在Storage Channel @{StreamBot.username}中进行首次激活")
+    
     await idle()
         
 async def cleanup():
-    await server.cleanup()
-    await StreamBot.stop()
+    global server
+    if server is not None:
+        try:
+            await server.cleanup()
+        except Exception as e:
+            logging.error(f"Error cleaning up web server: {e}")
+    try:
+        if StreamBot.is_connected:
+            await StreamBot.stop()
+    except Exception as e:
+        pass
 
 if __name__ == "__main__":
     try:

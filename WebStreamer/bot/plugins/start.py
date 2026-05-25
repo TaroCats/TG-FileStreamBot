@@ -4,12 +4,12 @@
 from pyrogram import filters
 from pyrogram.types import Message
 
-from WebStreamer.vars import Var 
+from WebStreamer.config import Config 
 from WebStreamer.bot import StreamBot
 
 @StreamBot.on_message(filters.command(["start", "help"]) & filters.private)
 async def start(_, m: Message):
-    if Var.ALLOWED_USERS and not ((str(m.from_user.id) in Var.ALLOWED_USERS) or (m.from_user.username in Var.ALLOWED_USERS)):
+    if Config.ALLOWED_USERS and not ((str(m.from_user.id) in Config.ALLOWED_USERS) or (m.from_user.username in Config.ALLOWED_USERS)):
         return await m.reply(
             "你不在可以使用我的用户的列表中。",
             disable_web_page_preview=True, quote=True

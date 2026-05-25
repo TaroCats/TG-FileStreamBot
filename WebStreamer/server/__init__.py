@@ -9,9 +9,10 @@ from .stream_routes import routes
 
 logger = logging.getLogger("server")
 
-def web_server():
+def web_server(client_manager):
     logger.info("Initializing..")
     web_app = web.Application(client_max_size=30000000)
+    web_app['client_manager'] = client_manager
     web_app.add_routes(routes)
     logger.info("Added routes")
     return web_app

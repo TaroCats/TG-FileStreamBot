@@ -1,9 +1,8 @@
 import math
 import asyncio
 import logging
-from WebStreamer.vars import Var
+from WebStreamer.config import Config
 from typing import Dict, Union
-from WebStreamer.bot import work_loads
 from pyrogram import Client, utils, raw
 from .file_properties import get_file_ids
 from pyrogram.session import Session, Auth
@@ -50,7 +49,7 @@ class ByteStreamer:
         Generates the properties of a media file on a specific message.
         returns ths properties in a FIleId class.
         """
-        file_id = await get_file_ids(self.client, Var.BIN_CHANNEL, message_id)
+        file_id = await get_file_ids(self.client, Config.BIN_CHANNEL, message_id)
         logger.debug(f"Generated file ID and Unique ID for message with ID {message_id}")
         if not file_id:
             logger.debug(f"Message with ID {message_id} not found")
@@ -170,6 +169,7 @@ class ByteStreamer:
         last_part_cut: int,
         part_count: int,
         chunk_size: int,
+        client_manager=None,
     ) -> Union[str, None]:
         """
         Custom generator that yields the bytes of the media file.
@@ -177,7 +177,8 @@ class ByteStreamer:
         Thanks to Eyaadh <https://github.com/eyaadh>
         """
         client = self.client
-        work_loads[index] += 1
+        if client_manager:
+            client_manager.increment_load(index)
         logger.debug(f"Starting to yielding file with client {index}.")
         media_session = await self.generate_media_session(client, file_id)
 
@@ -219,7 +220,8 @@ class ByteStreamer:
             pass
         finally:
             logger.debug(f"Finished yielding file with {current_part} parts.")
-            work_loads[index] -= 1
+            if client_manager:
+                client_manager.decrement_load(index)
 
     
     async def clean_cache(self) -> None:

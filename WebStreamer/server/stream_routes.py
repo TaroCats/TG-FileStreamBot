@@ -9,9 +9,9 @@ import mimetypes
 from urllib.parse import quote_plus
 from aiohttp import web
 from aiohttp.http_exceptions import BadStatusLine
-from WebStreamer.bot import multi_clients, work_loads
+
 from WebStreamer.server.exceptions import FIleNotFound, InvalidHash
-from WebStreamer import Var, StartTime, __version__, StreamBot
+from WebStreamer import Config, StartTime, __version__
 from WebStreamer.utils.custom_dl import ByteStreamer
 from WebStreamer.utils.file_properties import get_hash, get_name
 from WebStreamer.utils.time_format import get_readable_time
@@ -22,24 +22,25 @@ logger = logging.getLogger("routes")
 routes = web.RouteTableDef()
 
 @routes.get("/", allow_head=True)
-async def root_route_handler(_):
+async def root_route_handler(request: web.Request):
     return web.json_response(
         {
             "server_status": "running",
             "uptime": get_readable_time(time.time() - StartTime),
-            "telegram_bot": "@" + StreamBot.username,
-            "connected_bots": len(multi_clients),
+            "telegram_bot": "@" + request.app["client_manager"].main_bot.username,
+            "connected_bots": len(request.app["client_manager"].clients),
             "loads": dict(
                 ("bot" + str(c + 1), l)
                 for c, (_, l) in enumerate(
-                    sorted(work_loads.items(), key=lambda x: x[1], reverse=True)
+                    sorted(request.app["client_manager"].work_loads.items(), key=lambda x: x[1], reverse=True)
                 )
             ),
             "version": f"v{__version__}",
         }
     )
 
-async def _resolve_by_link(link: str) -> web.Response:
+async def _resolve_by_link(request: web.Request, link: str) -> web.Response:
+    StreamBot = request.app["client_manager"].main_bot
     """Core resolver: given a t.me message link, return direct links JSON."""
     try:
         pattern = r"https?://t\.me/(?:c/)?([^/]+)/(\d+)"
@@ -59,7 +60,7 @@ async def _resolve_by_link(link: str) -> web.Response:
         # Copy/republish to BIN_CHANNEL to ensure stream permission
         try:
             log_msg = await StreamBot.copy_message(
-                chat_id=Var.BIN_CHANNEL,
+                chat_id=Config.BIN_CHANNEL,
                 from_chat_id=message.chat.id,
                 message_id=message.id,
             )
@@ -68,7 +69,7 @@ async def _resolve_by_link(link: str) -> web.Response:
             try:
                 if getattr(message, "document", None):
                     log_msg = await StreamBot.send_document(
-                        Var.BIN_CHANNEL,
+                        Config.BIN_CHANNEL,
                         message.document.file_id,
                         caption=(message.caption or ""),
                         caption_entities=message.caption_entities,
@@ -76,7 +77,7 @@ async def _resolve_by_link(link: str) -> web.Response:
                     )
                 elif getattr(message, "video", None):
                     log_msg = await StreamBot.send_video(
-                        Var.BIN_CHANNEL,
+                        Config.BIN_CHANNEL,
                         message.video.file_id,
                         caption=(message.caption or ""),
                         caption_entities=message.caption_entities,
@@ -84,7 +85,7 @@ async def _resolve_by_link(link: str) -> web.Response:
                     )
                 elif getattr(message, "audio", None):
                     log_msg = await StreamBot.send_audio(
-                        Var.BIN_CHANNEL,
+                        Config.BIN_CHANNEL,
                         message.audio.file_id,
                         caption=(message.caption or ""),
                         caption_entities=message.caption_entities,
@@ -92,7 +93,7 @@ async def _resolve_by_link(link: str) -> web.Response:
                     )
                 elif getattr(message, "animation", None):
                     log_msg = await StreamBot.send_animation(
-                        Var.BIN_CHANNEL,
+                        Config.BIN_CHANNEL,
                         message.animation.file_id,
                         caption=(message.caption or ""),
                         caption_entities=message.caption_entities,
@@ -100,7 +101,7 @@ async def _resolve_by_link(link: str) -> web.Response:
                     )
                 elif getattr(message, "voice", None):
                     log_msg = await StreamBot.send_voice(
-                        Var.BIN_CHANNEL,
+                        Config.BIN_CHANNEL,
                         message.voice.file_id,
                         caption=(message.caption or ""),
                         caption_entities=message.caption_entities,
@@ -111,20 +112,20 @@ async def _resolve_by_link(link: str) -> web.Response:
                     photo = message.photo
                     file_id = photo.file_id if hasattr(photo, "file_id") else photo[-1].file_id
                     log_msg = await StreamBot.send_photo(
-                        Var.BIN_CHANNEL,
+                        Config.BIN_CHANNEL,
                         file_id,
                         caption=(message.caption or ""),
                         caption_entities=message.caption_entities,
                         reply_markup=message.reply_markup,
                     )
                 elif getattr(message, "video_note", None):
-                    log_msg = await StreamBot.send_video_note(Var.BIN_CHANNEL, message.video_note.file_id)
+                    log_msg = await StreamBot.send_video_note(Config.BIN_CHANNEL, message.video_note.file_id)
                 elif getattr(message, "sticker", None):
-                    log_msg = await StreamBot.send_sticker(Var.BIN_CHANNEL, message.sticker.file_id)
+                    log_msg = await StreamBot.send_sticker(Config.BIN_CHANNEL, message.sticker.file_id)
                 else:
                     # Fallback to plain text
                     log_msg = await StreamBot.send_message(
-                        Var.BIN_CHANNEL,
+                        Config.BIN_CHANNEL,
                         (message.text or message.caption or ""),
                         entities=message.entities,
                         reply_markup=message.reply_markup,
@@ -134,10 +135,10 @@ async def _resolve_by_link(link: str) -> web.Response:
                 return web.json_response({"error": f"cannot duplicate message: {e}"}, status=502)
 
         # Build links using BIN_CHANNEL message id and original media info
-        file_hash = get_hash(message, Var.HASH_LENGTH)
+        file_hash = get_hash(message, Config.HASH_LENGTH)
         display_name = get_name(message)
-        short_link = f"{Var.URL}{file_hash}{log_msg.id}"
-        stream_link = f"{Var.URL}{log_msg.id}/{quote_plus(display_name)}?hash={file_hash}"
+        short_link = f"{Config.URL}{file_hash}{log_msg.id}"
+        stream_link = f"{Config.URL}{log_msg.id}/{quote_plus(display_name)}?hash={file_hash}"
 
         return web.json_response({
             "ok": True,
@@ -163,7 +164,7 @@ async def resolve_tme_link_handler(request: web.Request):
     link = request.rel_url.query.get("url")
     if not link:
         return web.json_response({"error": "missing 'url' query param"}, status=400)
-    return await _resolve_by_link(link)
+    return await _resolve_by_link(request, link)
 
 @routes.post("/api/resolve")
 async def resolve_tme_link_post_handler(request: web.Request):
@@ -191,13 +192,13 @@ async def resolve_tme_link_post_handler(request: web.Request):
     if not link:
         return web.json_response({"error": "missing 'url' in body"}, status=400)
 
-    return await _resolve_by_link(link)
+    return await _resolve_by_link(request, link)
 
 @routes.get(r"/{path:\S+}", allow_head=True)
 async def stream_handler(request: web.Request):
     try:
         path = request.match_info["path"]
-        match = re.search(r"^([0-9a-f]{%s})(\d+)$" % (Var.HASH_LENGTH), path)
+        match = re.search(r"^([0-9a-f]{%s})(\d+)$" % (Config.HASH_LENGTH), path)
         if match:
             secure_hash = match.group(1)
             message_id = int(match.group(2))
@@ -220,10 +221,10 @@ class_cache = {}
 async def media_streamer(request: web.Request, message_id: int, secure_hash: str):
     range_header = request.headers.get("Range", 0)
     
-    index = min(work_loads, key=work_loads.get)
-    faster_client = multi_clients[index]
+    client_manager = request.app["client_manager"]
+    index, faster_client = client_manager.get_fastest_client()
     
-    if Var.MULTI_CLIENT:
+    if Config.MULTI_CLIENT:
         logger.info(f"Client {index} is now serving {request.remote}")
 
     if faster_client in class_cache:
@@ -238,7 +239,7 @@ async def media_streamer(request: web.Request, message_id: int, secure_hash: str
     logger.debug("after calling get_file_properties")
     
     
-    if get_hash(file_id.unique_id, Var.HASH_LENGTH) != secure_hash:
+    if get_hash(file_id.unique_id, Config.HASH_LENGTH) != secure_hash:
         logger.debug(f"Invalid hash for message with ID {message_id}")
         raise InvalidHash
     
@@ -269,7 +270,7 @@ async def media_streamer(request: web.Request, message_id: int, secure_hash: str
     req_length = until_bytes - from_bytes + 1
     part_count = math.ceil(until_bytes / chunk_size) - math.floor(offset / chunk_size)
     body = tg_connect.yield_file(
-        file_id, index, offset, first_part_cut, last_part_cut, part_count, chunk_size
+        file_id, index, offset, first_part_cut, last_part_cut, part_count, chunk_size, client_manager
     )
     mime_type = file_id.mime_type
     file_name = get_name(file_id)

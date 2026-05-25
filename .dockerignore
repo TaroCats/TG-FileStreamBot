@@ -3,5 +3,6 @@
 .gitattributes
 .gitignore
 .github
+.DS_Store
 LICENSE
 README.md

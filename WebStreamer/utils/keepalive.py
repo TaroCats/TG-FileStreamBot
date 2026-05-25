@@ -1,12 +1,12 @@
 import asyncio
 import logging
 import aiohttp
-from WebStreamer.vars import Var
+from WebStreamer.config import Config
 
 logger = logging.getLogger("keep_alive")
 
 async def ping_server():
-    sleep_time = Var.PING_INTERVAL
+    sleep_time = Config.PING_INTERVAL
     logger.info("Started with {}s interval between pings".format(sleep_time))
     while True:
         await asyncio.sleep(sleep_time)
@@ -14,7 +14,7 @@ async def ping_server():
             async with aiohttp.ClientSession(
                 timeout=aiohttp.ClientTimeout(total=10)
             ) as session:
-                async with session.get(Var.URL) as resp:
+                async with session.get(Config.URL) as resp:
                     logger.info("Pinged server with response: {}".format(resp.status))
         except TimeoutError:
             logger.warning("Couldn't connect to the site URL..")
