@@ -1,7 +1,7 @@
 '''
 Author: ablecats etsy@live.com
 LastEditors: ablecats etsy@live.com
-LastEditTime: 2026-05-25 13:33:06
+LastEditTime: 2026-05-25 17:15:19
 Description: 
 '''
 # This file is a part of TG-FileStreamBot
@@ -22,9 +22,11 @@ class Config(object):
     SLEEP_THRESHOLD = int(environ.get("SLEEP_THRESHOLD", "60"))  # 1 minte
     # 6 workers = 6 commands at once
     WORKERS = int(environ.get("WORKERS", "6"))
-    BIN_CHANNEL = int(
-        environ.get("BIN_CHANNEL", None)
-    )  # you NEED to use a CHANNEL when you're using MULTI_CLIENT
+    # 支持 BIN_CHANNEL 和 CHANNEL_NAME 两种环境变量，兼容老配置
+    BIN_CHANNEL = environ.get("BIN_CHANNEL") or environ.get("CHANNEL_NAME")
+    if BIN_CHANNEL:
+        # 如果是全数字或带有负号的数字，转为整数ID，否则保留原字符串（如 @FileStreamStorage）
+        BIN_CHANNEL = int(BIN_CHANNEL) if str(BIN_CHANNEL).lstrip('-').isdigit() else str(BIN_CHANNEL)
     PORT = int(environ.get("PORT", 8080))
     BIND_ADDRESS = str(environ.get("WEB_SERVER_BIND_ADDRESS", "0.0.0.0"))
     PING_INTERVAL = int(environ.get("PING_INTERVAL", "1200"))  # 20 minutes

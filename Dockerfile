@@ -1,13 +1,20 @@
+FROM python:3.9-slim AS builder
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    python3-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY requirements.txt ./
+RUN pip install --prefix=/install --no-cache-dir -r requirements.txt
+
 FROM python:3.9-slim
 
 WORKDIR /app
 
-COPY requirements.txt ./
-
-# 使用 slim 镜像自带 glibc，可以直接下载预编译的 wheel 包（如 TgCrypto, aiohttp）
-# 无需像 Alpine 那样安装庞大的 build-base 编译工具链
-RUN pip install --no-cache-dir -r requirements.txt
-
+COPY --from=builder /install /usr/local
 COPY . .
 
 CMD ["python3", "-m", "WebStreamer"]

@@ -1,7 +1,7 @@
 '''
 Author: ablecats etsy@live.com
 LastEditors: ablecats etsy@live.com
-LastEditTime: 2026-05-25 16:49:00
+LastEditTime: 2026-05-25 17:19:26
 Description: 
 '''
 # This file is a part of TG-FileStreamBot
@@ -60,8 +60,6 @@ async def start_services():
     if bot_info.dc_id:
         logging.info("DC ID =>> {}".format(str(bot_info.dc_id)))
     logging.info("URL =>> {}".format(Config.URL))
-    
-    logging.info(f"文件流解析服务成功启动, 请在Storage Channel @{StreamBot.username}中进行首次激活")
     
     await idle()
         

@@ -33,7 +33,7 @@ docker pull rong6233/tg-filestreambot:latest
  
 - `BOT_TOKEN` ：这是 Telegram Media Streamer Bot 的机器人令牌，可从 [@BotFather](https://telegram.dog/BotFather) 获取。 
  
-- `BIN_CHANNEL` ：这是日志频道的频道 ID，机器人将在该频道转发媒体消息并存储这些文件以使生成的直接链接正常工作。要获取频道 ID，请创建一个新的电报频道（公共或私人），在频道中发布一些内容，将消息转发给 [@missrose_bot](https://telegram.dog/MissRose_bot) 并使用 /id 命令 **回复转发的消息**。复制转发的频道 ID 并将其粘贴到此字段中。
+- `BIN_CHANNEL` ：这是日志频道的频道 ID 或频道名称（如 `@FileStreamStorage`），机器人将在该频道转发媒体消息并存储这些文件以使生成的直接链接正常工作。如果使用 ID，请创建一个新的电报频道（公共或私人），在频道中发布一些内容，将消息转发给 [@missrose_bot](https://telegram.dog/MissRose_bot) 并使用 /id 命令 **回复转发的消息**。复制转发的频道 ID 并将其粘贴到此字段中。也可以直接使用公开频道的 `@名称`，或者设置环境变量 `CHANNEL_NAME` 来替代。
 
 #### 可选变量
 - `HASH_LENGTH`：这是生成的 URL 的自定义哈希长度。哈希长度必须大于 5 且小于 64。
