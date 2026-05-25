@@ -1,10 +1,10 @@
 version: "3.8"
 
 services:
-  fsb:
-      image: rong6233/tg-filestreambot
+  tg-filestreambot:
+      image: ghcr.io/tarocats/tg-filestreambot:main
       restart: unless-stopped
-      container_name: fsb
+      container_name: tg-filestreambot
       environment:
        - API_ID=0 # 这是您的 Telegram 帐户的 API ID，可以从 my.telegram.org 获取。
        - API_HASH=e83e839202 # 这是您的 Telegram 帐户的 API 哈希值，也可以从 my.telegram.org 获取。
@@ -15,6 +15,4 @@ services:
        - FQDN=example.com # 完全限定的域名（如果存在）。默认为 WEB_SERVER_BIND_ADDRESS的值
        - HAS_SSL=true # 这可以是 True 或 False。如果设置为 True，则将启用 SSL。
       ports:
-       - 127.0.0.1:9191:9191
-      volumes:
-       - $HOME/TG-FileStreamBot:/app/.env
+       - 9191:9191
