@@ -1,18 +1,9 @@
-version: "3.8"
-
 services:
-  tg-filestreambot:
+    tg-filestreambot:
       image: ghcr.io/tarocats/tg-filestreambot:main
       restart: unless-stopped
       container_name: tg-filestreambot
-      environment:
-       - API_ID=0 # 这是您的 Telegram 帐户的 API ID，可以从 my.telegram.org 获取。
-       - API_HASH=e83e839202 # 这是您的 Telegram 帐户的 API 哈希值，也可以从 my.telegram.org 获取。
-       - BOT_TOKEN=token # 这是机器人令牌，可以从 @BotFather 获取。
-       - BIN_CHANNEL=-10012345678 # 也可以直接使用频道名称，如 @FileStreamStorage
-       - PORT=9191 # 这是应用程序的端口。
-       - NO_PORT=true # 这可以是 True 或 False。如果设置为 True，则不会显示端口。
-       - FQDN=example.com # 完全限定的域名（如果存在）。默认为 WEB_SERVER_BIND_ADDRESS的值
-       - HAS_SSL=true # 这可以是 True 或 False。如果设置为 True，则将启用 SSL。
+      env_file:
+        - .env
       ports:
        - 9191:9191
